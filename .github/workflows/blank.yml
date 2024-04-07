@@ -79,7 +79,8 @@ jobs:
           cmake --version
           gcc --version
           # Install Vulkan SDK
-          sudo apt install libvulkan-dev
+          sudo apt-get install glslc glslang-tools
+          sudo apt-get install libvulkan-dev
           
       - name: Configure
         shell: bash
