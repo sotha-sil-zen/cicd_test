@@ -78,8 +78,7 @@ jobs:
           ninja --version
           cmake --version
           gcc --version
-          # Install Vulkan SDK
-          sudo apt-get install glslc glslang-tools
+          # Install Vulkan SDK    
           sudo apt-get install libvulkan-dev
           
       - name: Configure
