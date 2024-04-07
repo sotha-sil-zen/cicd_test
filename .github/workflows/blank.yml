@@ -79,7 +79,7 @@ jobs:
           cmake --version
           gcc --version
           # Install Vulkan SDK
-          sudo apt install vulkan-sdk
+          sudo apt install libvulkan-dev
           
       - name: Configure
         shell: bash
