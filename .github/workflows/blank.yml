@@ -78,6 +78,8 @@ jobs:
           ninja --version
           cmake --version
           gcc --version
+          # Install Vulkan SDK
+          sudo apt install vulkan-sdk
           
       - name: Configure
         shell: bash
