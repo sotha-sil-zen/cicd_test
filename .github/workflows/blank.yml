@@ -64,32 +64,11 @@ jobs:
         run: |
           echo github.event.action: ${{ github.event.action }}
           echo github.event_name: ${{ github.event_name }}
-
-      - name: Cache Vulkan SDK on Windows
-        id: cache_vulkan_sdk
-        uses: actions/cache@v2
-        if: startsWith(matrix.config.os, 'windows')
-        with:
-          path: VulkanSDK-1.3.280.0-Installer.exe
-          key: vulkan-sdk-${{ matrix.config.os }}-${{ hashFiles('**/CMakeLists.txt') }}-${{ hashFiles('**/cmake/*.cmake') }}-${{ hashFiles('**/CMakeLists.txt') }}-${{ hashFiles('**/cmake/*.cmake') }}-${{ hashFiles('**/requirements.txt') }}
-
-      - name: Check Cache Hit
-        if: steps.cache_vulkan_sdk.outputs.cache-hit == 'true' && startsWith(matrix.config.os, 'windows')
-        run: echo "Vulkan SDK cache hit"
-      - name: Check Cache Miss
-        if: steps.cache_vulkan_sdk.outputs.cache-hit != 'true' && startsWith(matrix.config.os, 'windows')
-        run: |
-          echo "Vulkan SDK cache miss, downloading......"
-          choco install -y wget
-          wget https://sdk.lunarg.com/sdk/download/1.3.280.0/windows/VulkanSDK-1.3.280.0-Installer.exe
-          echo %cd%  # 打印当前工作目录
-          pwd  # 列出当前目录下的文件
-          Start-Process -FilePath VulkanSDK-1.3.280.0-Installer.exe -ArgumentList '/S' -Wait
       
       - name: Install dependencies on windows
         if: startsWith(matrix.config.os, 'windows')
         run: |
-          choco install ninja cmake
+          choco install ninja cmake vulkan-sdk
           ninja --version
           cmake --version
         # cmd "${{ matrix.config.environment_script }}"
