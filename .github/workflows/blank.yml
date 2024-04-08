@@ -64,15 +64,32 @@ jobs:
         run: |
           echo github.event.action: ${{ github.event.action }}
           echo github.event_name: ${{ github.event_name }}
+
+      - name: Cache Vulkan SDK on Windows
+        id: cache_vulkan_sdk
+        uses: actions/cache@v2
+        if: startsWith(matrix.config.os, 'windows')
+        with:
+          path: VulkanSDK-1.3.280.0-Installer.exe
+          key: vulkan-sdk-${{ matrix.config.os }}-${{ hashFiles('**/CMakeLists.txt') }}-${{ hashFiles('**/cmake/*.cmake') }}-${{ hashFiles('**/CMakeLists.txt') }}-${{ hashFiles('**/cmake/*.cmake') }}-${{ hashFiles('**/requirements.txt') }}
+
+      - name: Check Cache Hit
+        if: steps.cache_vulkan_sdk.outputs.cache-hit == 'true' && startsWith(matrix.config.os, 'windows')
+        run: echo "Vulkan SDK cache hit"
+      - name: Check Cache Miss
+        if: steps.cache_vulkan_sdk.outputs.cache-hit != 'true' && startsWith(matrix.config.os, 'windows')
+        run: |
+          echo "Vulkan SDK cache miss, downloading......"
+          choco install -y wget
+          wget https://sdk.lunarg.com/sdk/download/1.3.280.0/windows/VulkanSDK-1.3.280.0-Installer.exe -OutFile VulkanSDK.exe
+          Start-Process -FilePath VulkanSDK.exe -ArgumentList '/S' -Wait
+      
       - name: Install dependencies on windows
         if: startsWith(matrix.config.os, 'windows')
         run: |
           choco install ninja cmake
           ninja --version
           cmake --version
-          Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/1.3.280.0/windows/VulkanSDK-1.3.280.0-Installer.exe" -OutFile VulkanSDK.exe
-          $installer = Start-Process -FilePath VulkanSDK.exe -Wait -PassThru -ArgumentList @("/S");
-          $installer.WaitForExit();
         # cmd "${{ matrix.config.environment_script }}"
 
       - name: Install dependencies on ubuntu
