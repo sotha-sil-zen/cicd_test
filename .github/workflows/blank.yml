@@ -71,6 +71,8 @@ jobs:
           ninja --version
           cmake --version
         # cmd "${{ matrix.config.environment_script }}"
+
+        
       -name: Prepare Vulkan SDK
          uses: humbletim/setup-vulkan-sdk@v1.2.0
          with:
