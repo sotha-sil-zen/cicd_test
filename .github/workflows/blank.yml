@@ -68,9 +68,10 @@ jobs:
       - name: Install dependencies on windows
         if: startsWith(matrix.config.os, 'windows')
         run: |
-          choco install ninja cmake vulkan-sdk
+          choco install ninja cmake
           ninja --version
           cmake --version
+          choco install vulkan-sdk --version "1.2.135.0"
         # cmd "${{ matrix.config.environment_script }}"
 
       - name: Install dependencies on ubuntu
