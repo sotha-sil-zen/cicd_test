@@ -82,6 +82,8 @@ jobs:
           echo "Vulkan SDK cache miss, downloading......"
           choco install -y wget
           wget https://sdk.lunarg.com/sdk/download/1.3.280.0/windows/VulkanSDK-1.3.280.0-Installer.exe -OutFile VulkanSDK-1.3.280.0-Installer.exe
+          pwd  # 打印当前工作目录
+          ls -la  # 列出当前目录下的文件
           Start-Process -FilePath VulkanSDK-1.3.280.0-Installer.exe -ArgumentList '/S' -Wait
       
       - name: Install dependencies on windows
