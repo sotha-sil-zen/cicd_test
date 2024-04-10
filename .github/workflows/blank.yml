@@ -94,7 +94,8 @@ jobs:
           sudo apt update
           sudo apt install vulkan-sdk
           sudo apt install vulkan-validationlayers-dev spirv-tools
-          sudo apt-get install libxkbcommon-x11-dev libxinerama-dev libxcursor-dev
+          # glfw part
+          sudo apt-get install libxkbcommon-x11-dev libxinerama-dev libxcursor-dev libxi-dev
 
 
 
