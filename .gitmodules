@@ -10,3 +10,9 @@
 [submodule "3rdParty/eigen"]
 	path = 3rdParty/eigen
 	url = https://gitlab.com/libeigen/eigen
+[submodule "3rdParty/glm"]
+	path = 3rdParty/glm
+	url = https://github.com/sotha-sil-zen/glm.git
+[submodule "3rdParty/glfw"]
+	path = 3rdParty/glfw
+	url = https://github.com/sotha-sil-zen/glfw.git
