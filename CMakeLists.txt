@@ -52,6 +52,9 @@ add_library(imgui STATIC
 target_include_directories(imgui PUBLIC ${GLFW_SOURCE_DIR}/include)
 target_link_libraries(imgui PUBLIC glfw)
 
+target_include_directories(imgui PRIVATE ${Vulkan_INCLUDE_DIRS})
+target_link_libraries(imgui PRIVATE ${Vulkan_LIBRARIES})
+
 install(TARGETS imgui
         DESTINATION ${IMGUI_INSTALL_DIR}/lib)
 
