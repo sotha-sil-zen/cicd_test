@@ -49,6 +49,9 @@ add_library(imgui STATIC
     ${IMGUI_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
 )
 
+target_include_directories(imgui PUBLIC ${GLFW_SOURCE_DIR}/include)
+target_link_libraries(imgui PUBLIC glfw)
+
 install(TARGETS imgui
         DESTINATION ${IMGUI_INSTALL_DIR}/lib)
 
