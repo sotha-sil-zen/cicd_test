@@ -75,6 +75,7 @@ jobs:
         
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.0
+        if: startsWith(matrix.config.os, 'windows')
         with:
            vulkan-query-version: 1.3.204.0
            vulkan-components: Vulkan-Headers, Vulkan-Loader
