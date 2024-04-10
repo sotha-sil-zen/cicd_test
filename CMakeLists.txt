@@ -24,6 +24,13 @@ install(EXPORT AssimpTargets
 # Vulkan Part
 find_package(Vulkan REQUIRED)
 
+# glfw Part
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/glfw)
+add_subdirectory(${GLFW_SOURCE_DIR})
+
 # Imgui Part
 set(IMGUI_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/imgui)
 set(IMGUI_INSTALL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/install/imgui)
@@ -75,12 +82,6 @@ install(EXPORT GlmTargets
 )
 ]]
 
-# glfw Part
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/glfw)
-add_subdirectory(${GLFW_SOURCE_DIR})
 
 
 add_executable(main main.cpp)
@@ -92,9 +93,9 @@ target_sources(main PRIVATE ${SOURCES})
 
 
 target_link_libraries(main PUBLIC Vulkan::Vulkan)
+target_link_libraries(main PRIVATE glfw)
 target_link_libraries(main PRIVATE imgui)
 target_link_libraries(main PRIVATE assimp)
-target_link_libraries(main PRIVATE glfw)
 
 #target_link_libraries(main PRIVATE glm)
 
