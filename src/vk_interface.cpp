@@ -21,6 +21,118 @@ namespace Sil
             abort();
     }
 
+    void VulkInterface::mousePosCallback(GLFWwindow *window, double xpos, double ypos)
+    {
+        auto app = reinterpret_cast<VulkInterface *>(glfwGetWindowUserPointer(window));
+        if (app->is_mouse_pressed)
+        {
+            int viewportWidth, viewportHeight;
+            glfwGetWindowSize(window, &viewportWidth, &viewportHeight);
+            auto get_arcball_vector = [viewportWidth, viewportHeight](double x, double y)
+            {
+                glm::vec3 P = glm::vec3(1.0 * x / viewportWidth * 2 - 1.0,
+                                        1.0 * y / viewportHeight * 2 - 1.0,
+                                        0);
+                P.y = -P.y;
+                float OP_squared = P.x * P.x + P.y * P.y;
+                if (OP_squared <= 1.0 * 1.0)
+                    P.z = sqrt(1.0 * 1.0 - OP_squared); // Pythagoras
+                else
+                    P = glm::normalize(P); // nearest point
+                return P;
+            };
+            if(app->last_mouse_pos_x==xpos&&app->last_mouse_pos_y==ypos)
+            {
+                return;
+            }
+            glm::vec3 va = get_arcball_vector(app->last_mouse_pos_x, app->last_mouse_pos_y);
+            glm::vec3 vb = get_arcball_vector(xpos, ypos);
+            float angle = std::acos(std::min(1.0f, glm::dot(va, vb)));
+            glm::vec3 axis_in_camera_coord = glm::normalize(glm::cross(va, vb));
+            glm::vec3 axis_in_world_coord = glm::inverse(glm::mat3(app->camera.GetViewMatrix())) * axis_in_camera_coord;
+
+            glm::vec4 position(app->camera.GetEye().x, app->camera.GetEye().y, app->camera.GetEye().z, 1);
+            glm::vec4 pivot(app->camera.GetLookAt().x, app->camera.GetLookAt().y, app->camera.GetLookAt().z, 1);
+
+            glm::mat4 rotationMatrix(1.0f);
+            rotationMatrix = glm::rotate(rotationMatrix, angle, -axis_in_world_coord);
+            position = (rotationMatrix * (position- pivot)) + pivot;
+            std::cout<<axis_in_world_coord.x<<" "<<axis_in_world_coord.y<<" "<<axis_in_world_coord.z<<std::endl;
+            app->camera.SetCameraView(position, app->camera.GetLookAt(), glm::mat3(rotationMatrix)*app->camera.GetUpVector());
+
+            app->last_mouse_pos_x = xpos;
+            app->last_mouse_pos_y = ypos;
+
+            std::cout<<app->camera.GetEye().x<<" "<<app->camera.GetEye().y<<" "<<app->camera.GetEye().z<<std::endl;
+            /*
+            int viewportWidth, viewportHeight;
+            glfwGetWindowSize(window, &viewportWidth, &viewportHeight);
+
+            glm::vec4 position(app->camera.GetEye().x, app->camera.GetEye().y, app->camera.GetEye().z, 1);
+            glm::vec4 pivot(app->camera.GetLookAt().x, app->camera.GetLookAt().y, app->camera.GetLookAt().z, 1);
+
+            float arcball_radius=std::min(viewportWidth,viewportHeight)/2;
+            float deltaAngleX = (2 * M_PI / viewportWidth); // a movement from left to right = 2*PI = 360 deg
+            float deltaAngleY = (M_PI / viewportHeight);    // a movement from top to bottom = PI = 180 deg
+            float xAngle = (app->last_mouse_pos_x - xpos) * deltaAngleX;
+            float yAngle = (app->last_mouse_pos_y - ypos) * deltaAngleY;
+
+            std::cout<<xAngle<<" "<<yAngle<<std::endl;
+            float cosAngle = glm::dot(app->camera.GetViewDir(), app->camera.GetUpVector());
+            if (cosAngle * glm::sign(deltaAngleY) > 0.99f)
+            {
+                deltaAngleY = 0;
+            }
+
+
+            glm::mat4 rotationMatrixX(1.0f);
+            rotationMatrixX = glm::rotate(rotationMatrixX, xAngle, app->camera.GetUpVector());
+            position = (rotationMatrixX * (position - pivot)) + pivot;
+
+            // step 3: Rotate the camera around the pivot point on the second axis.
+            glm::mat4 rotationMatrixY(1.0f);
+            rotationMatrixY = glm::rotate(rotationMatrixY, yAngle, app->camera.GetUpVector());
+            glm::vec3 finalPosition = (rotationMatrixY * (position - pivot)) + pivot;
+
+            // Update the camera view (we keep the same lookat and the same up vector)
+            app->camera.SetCameraView(finalPosition, app->camera.GetLookAt(), app->camera.GetUpVector());
+
+            app->last_mouse_pos_x = xpos;
+            app->last_mouse_pos_y = ypos;
+            */
+        }
+    }
+
+    void VulkInterface::mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
+    {
+        auto app = reinterpret_cast<VulkInterface *>(glfwGetWindowUserPointer(window));
+        if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_LEFT)
+        {
+            double xPos, yPos;
+            glfwGetCursorPos(window, &xPos, &yPos);
+            int viewportWidth, viewportHeight;
+            glfwGetWindowSize(window, &viewportWidth, &viewportHeight);
+            // 在此处处理鼠标左键按下事件
+            bool handleMouseInput = !ImGui::GetIO().WantCaptureMouse;
+            if (handleMouseInput)
+            {
+                app->is_mouse_pressed = true;
+                app->last_mouse_pos_x = xPos;
+                app->last_mouse_pos_y = yPos;
+            }
+            else
+            {
+                // 当鼠标左键在widget内被点击时触发的逻辑
+                // 在这里添加你想要执行的代码
+                std::cout << "yyyy" << std::endl;
+            }
+        }
+        else if (action == GLFW_RELEASE)
+        {
+            app->is_mouse_pressed = false;
+        }
+    }
+
     bool hasStencilComponent(VkFormat format)
     {
         return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
@@ -62,6 +174,8 @@ namespace Sil
 
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+        glfwSetMouseButtonCallback(window, mouseButtonCallback);
+        glfwSetCursorPosCallback(window, mousePosCallback);
     }
 
     void VulkInterface::initVulkan()
@@ -86,6 +200,7 @@ namespace Sil
         createTextureSampler();
         createVertexBuffer();
         createIndexBuffer();
+        createCamera();
         mapTextureToVulkan();
         mapMeshToVulKan();
         createUniformBuffers();
@@ -152,16 +267,16 @@ namespace Sil
         init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
         init_info.CheckVkResultFn = check_imgui_result;
         ImGui_ImplVulkan_Init(&init_info);
-	
-	/*
-        VkCommandBuffer commandBuffer = beginSingleTimeCommands();
-        {
-            ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
-        }
-        endSingleTimeCommands(commandBuffer);
-        */
-        //ImGui_ImplVulkan_CreateFontsTexture();
-        //ImGui_ImplVulkan_DestroyFontUploadObjects();
+
+        /*
+            VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+            {
+                ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
+            }
+            endSingleTimeCommands(commandBuffer);
+            */
+        // ImGui_ImplVulkan_CreateFontsTexture();
+        // ImGui_ImplVulkan_DestroyFontUploadObjects();
     }
 
     std::vector<const char *> VulkInterface::getRequiredExtensions()
@@ -183,6 +298,9 @@ namespace Sil
         vkEnumerateInstanceExtensionProperties(nullptr, &properties_count, properties.data());
         if (IsExtensionAvailable(properties, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
             extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+
+        if (IsExtensionAvailable(properties, VK_NV_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME))
+            extensions.push_back(VK_NV_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
         return extensions;
     }
 
@@ -208,7 +326,7 @@ namespace Sil
             }
 
             if (!layerFound)
-            {	
+            {
                 return false;
             }
         }
@@ -430,7 +548,8 @@ namespace Sil
         }
 
         VkPhysicalDeviceFeatures deviceFeatures{};
-        deviceFeatures.samplerAnisotropy = VK_TRUE;
+        // can't believe this.
+        // deviceFeatures.samplerAnisotropy = VK_TRUE;
 
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -717,9 +836,9 @@ namespace Sil
 
         std::array<VkAttachmentDescription, 3> attachments = {colorAttachment, depthAttachment, imguiAttachment};
         std::array<VkSubpassDescription, 2> subpasses = {subpass, imguiSubpass};
-        //std::array<VkSubpassDescription, 3> subpasses = { subpass, debugSubpass, imguiSubpass };
+        // std::array<VkSubpassDescription, 3> subpasses = { subpass, debugSubpass, imguiSubpass };
         std::array<VkSubpassDependency, 2> denpendencies = {dependency, imguiDependency};
-        //std::array<VkSubpassDependency, 3> denpendencies = { dependency, debugDependency, imguiDependency };
+        // std::array<VkSubpassDependency, 3> denpendencies = { dependency, debugDependency, imguiDependency };
 
         VkRenderPassCreateInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -751,7 +870,7 @@ namespace Sil
         uboLayoutBinding.descriptorCount = 1;
         uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         uboLayoutBinding.pImmutableSamplers = nullptr;
-        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
         std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, samplerLayoutBinding};
 
@@ -911,7 +1030,7 @@ namespace Sil
         fragShaderStageInfo.module = fragShaderModule;
         fragShaderStageInfo.pName = "main";
 
-        VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+        VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -974,7 +1093,7 @@ namespace Sil
 
         std::vector<VkDynamicState> dynamicStates = {
             VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR };
+            VK_DYNAMIC_STATE_SCISSOR};
         VkPipelineDynamicStateCreateInfo dynamicState{};
         dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
         dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
@@ -1452,20 +1571,20 @@ For subpass self-dependency barriers, the source scope is all previously submitt
     }
 
     void VulkInterface::createDescriptorPool()
-    {   
-        //一个常见的实践是根据你的场景和资源需求，预先估计好每种类型描述符的最大使用数量，然后根据这些数量来设置 descriptorCount，
-        //最后将这些数量累加作为 maxSets 的值。这样可以确保描述符池能够容纳足够的描述符集，以满足你的渲染需求。
+    {
+        // 一个常见的实践是根据你的场景和资源需求，预先估计好每种类型描述符的最大使用数量，然后根据这些数量来设置 descriptorCount，
+        // 最后将这些数量累加作为 maxSets 的值。这样可以确保描述符池能够容纳足够的描述符集，以满足你的渲染需求。
         std::array<VkDescriptorPoolSize, 2> poolSizes{};
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT*10);
+        poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 10);
         poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT*10);
+        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 10);
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
         poolInfo.pPoolSizes = poolSizes.data();
-        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT*20);
+        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 20);
 
         if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
         {
@@ -1521,7 +1640,6 @@ For subpass self-dependency barriers, the source scope is all previously submitt
             vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
         }
 
-
         std::vector<std::vector<VkDescriptorSet>> &dSets = _mesh_manager._descriptorSets;
         dSets.resize(MAX_FRAMES_IN_FLIGHT);
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
@@ -1557,7 +1675,7 @@ For subpass self-dependency barriers, the source scope is all previously submitt
                 descriptorWrites[0].dstSet = dSets[i][j];
                 descriptorWrites[0].dstBinding = 0;
                 descriptorWrites[0].dstArrayElement = 0;
-                descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;\
+                descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
                 descriptorWrites[0].descriptorCount = 1;
                 descriptorWrites[0].pBufferInfo = &bufferInfo;
 
@@ -1745,15 +1863,17 @@ For subpass self-dependency barriers, the source scope is all previously submitt
 
         UniformBufferObject ubo{};
         ubo.is_selected = false;
-        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        // ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.view = camera.GetViewMatrix();
         ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
         ubo.proj[1][1] *= -1;
 
         memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
         std::vector<std::vector<void *>> &uBuffersMapped = _mesh_manager._uniformBuffersMapped;
         for (size_t j = 0; j < _mesh_manager._meshes.size(); ++j)
-        {   
+        {
             ubo.is_selected = _mesh_manager._mesh_selected[j];
             memcpy(uBuffersMapped[currentImage][j], &ubo, sizeof(ubo));
         }
@@ -1851,7 +1971,6 @@ For subpass self-dependency barriers, the source scope is all previously submitt
 
         imguiDraw();
 
-
         ImGui::Render();
         ImDrawData *main_draw_data = ImGui::GetDrawData();
         vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
@@ -1873,41 +1992,42 @@ For subpass self-dependency barriers, the source scope is all previously submitt
     void VulkInterface::imguiShowOutliner()
     {
         ImGui::ShowDemoWindow();
-        
+
         ImGui::Begin("Outliner");
-        if (ImGui::BeginTable("", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders)) 
+        if (ImGui::BeginTable("", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
         {
             for (int i = 0; i < _mesh_manager._meshes.size(); i++)
             {
-                //MyItem& item = items[i];
+                // MyItem& item = items[i];
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
 
                 bool was_selected = _mesh_manager._mesh_selected[i];
 
-                bool pressed=ImGui::Selectable(std::to_string(i).c_str(), _mesh_manager._mesh_selected[i], ImGuiSelectableFlags_SpanAllColumns);
+                bool pressed = ImGui::Selectable(std::to_string(i).c_str(), _mesh_manager._mesh_selected[i], ImGuiSelectableFlags_SpanAllColumns);
                 ImGui::TableNextColumn();
                 ImGui::Text("Some other contents");
-                
+
                 if (pressed)
                 {
                     _mesh_manager._mesh_selected[i] = !_mesh_manager._mesh_selected[i];
-                    if (ImGui::GetIO().KeyShift && _mesh_manager._last_selected_idx != -1) 
+                    if (ImGui::GetIO().KeyShift && _mesh_manager._last_selected_idx != -1)
                     {
                         // 如果按下Shift键，则选择范围内的所有项目
                         int start = std::min(_mesh_manager._last_selected_idx, i);
                         int end = std::max(_mesh_manager._last_selected_idx, i);
-                        for (int j = start; j <= end; j++) 
+                        for (int j = start; j <= end; j++)
                         {
                             _mesh_manager._mesh_selected[j] = _mesh_manager._mesh_selected[i];
                         }
                     }
-                    else if (!ImGui::GetIO().KeyCtrl) 
+                    else if (!ImGui::GetIO().KeyCtrl)
                     {
                         // 如果没有按下Ctrl键，则取消选择其他所有项目
                         for (int j = 0; j < _mesh_manager._meshes.size(); j++)
                         {
-                            if (j != i)  _mesh_manager._mesh_selected[j] = false;
+                            if (j != i)
+                                _mesh_manager._mesh_selected[j] = false;
                         }
                     }
 
@@ -1920,7 +2040,6 @@ For subpass self-dependency barriers, the source scope is all previously submitt
                         _mesh_manager._last_selected_idx = i; // 更新最后一个被选中的项的索引
                     }
                 }
-                
             }
             ImGui::EndTable();
         }
@@ -2039,7 +2158,7 @@ For subpass self-dependency barriers, the source scope is all previously submitt
         std::vector<VkBuffer> &indexBuffers = _mesh_manager._indexBuffers;
         std::vector<VkDeviceMemory> &indexBuffersMemory = _mesh_manager._indexBuffersMemory;
 
-        std::vector<bool>& mesh_selected = _mesh_manager._mesh_selected;
+        std::vector<bool> &mesh_selected = _mesh_manager._mesh_selected;
         vertexBuffers.resize(_mesh_manager._meshes.size());
         vertexBuffersMemory.resize(_mesh_manager._meshes.size());
         indexBuffers.resize(_mesh_manager._meshes.size());
@@ -2148,5 +2267,8 @@ For subpass self-dependency barriers, the source scope is all previously submitt
             textureImagesView[i] = createImageView(textureImages[i], VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
         }
     }
-
+    void VulkInterface::createCamera()
+    {
+        camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    }
 }

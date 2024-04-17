@@ -46,6 +46,7 @@ namespace Sil
         }
         void mainLoop();
     private:
+
         GLFWwindow *window;
         VkInstance instance;
         VkDebugUtilsMessengerEXT debugMessenger;
@@ -103,10 +104,18 @@ namespace Sil
         std::vector<VkSemaphore> imageAvailableSemaphores;
         std::vector<VkSemaphore> renderFinishedSemaphores;
         std::vector<VkFence> inFlightFences;
+
+        Camera camera;
+
         uint32_t currentFrame = 0;
 
         bool framebufferResized = false;
 
+        double last_mouse_pos_x;
+        double last_mouse_pos_y;
+        bool is_mouse_pressed = false;
+        void static mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);
+        void static mousePosCallback(GLFWwindow* window, double xpos, double ypos);
         void static framebufferResizeCallback(GLFWwindow *window, int width, int height);
         std::vector<char> static readFile(const std::string &filename);
         VkShaderModule createShaderModule(const std::vector<char> &code);
@@ -147,6 +156,8 @@ namespace Sil
 
         void createVertexBuffer();
         void createIndexBuffer();
+        void createCamera();
+
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
         void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer, VkDeviceMemory &bufferMemory);
         void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
