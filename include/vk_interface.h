@@ -75,6 +75,9 @@ namespace Sil
         VkPipelineLayout pipelineLayout;
         VkPipeline graphicsPipeline;
         VkPipeline debugPipeline;
+        VkPipelineLayout gridPipelineLayout;
+        VkDescriptorSetLayout gridDescriptorSetLayout;
+        VkPipeline gridPipeline;
 
         VkCommandPool commandPool;
 
@@ -96,8 +99,14 @@ namespace Sil
         std::vector<VkDeviceMemory> uniformBuffersMemory;
         std::vector<void *> uniformBuffersMapped;
 
+        std::vector<VkBuffer> GridUniformBuffers;
+        std::vector<VkDeviceMemory> GridUniformBuffersMemory;
+        std::vector<void *> GridUniformBuffersMapped;
+
         VkDescriptorPool descriptorPool;
         std::vector<VkDescriptorSet> descriptorSets;
+        VkDescriptorPool gridDescriptorPool;
+        std::vector<VkDescriptorSet> gridDescriptorSets;
 
         std::vector<VkCommandBuffer> commandBuffers;
 
@@ -140,6 +149,7 @@ namespace Sil
         void createImageViews();
         void createDescriptorSetLayout();
         void createGraphicsPipeline();
+        void createGridPipeline();
 
         void createDebugPipeline();
 
@@ -186,8 +196,8 @@ namespace Sil
         void cleanup();
 
         void imguiDraw();
-        void imguiShowOutliner();
-
+        void imguiShowMeshOutliner();
+        void imguiShowCameraOutliner();
     };
 }
 #endif

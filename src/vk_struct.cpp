@@ -84,4 +84,49 @@ namespace Sil
         // Generate view matrix using the eye, lookAt and up vector
         m_viewMatrix = glm::lookAt(m_eye, m_lookAt, m_upVector);
     }
-}
+
+
+    CameraManager::CameraManager(glm::vec3 eye, glm::vec3 lookat, glm::vec3 upVector,std::string name)
+    {
+        camera_inst_vec.emplace_back(eye,lookat,upVector);
+        camera_name_vec.emplace_back(name);
+        cur_cam_idx=0;
+    }
+    size_t CameraManager::getCurIdx()
+    {
+        return cur_cam_idx;
+    }
+    void CameraManager::setCurIdx(size_t idx)
+    {
+        cur_cam_idx = idx;
+    }
+    size_t CameraManager::getCount()
+    {
+        return camera_inst_vec.size();
+    }
+    const Camera& CameraManager::getCamera(size_t idx)
+    {
+        return camera_inst_vec[idx];
+    }
+    const std::string& CameraManager::getName(size_t idx)
+    {
+        return camera_name_vec[idx];
+    }
+    void CameraManager::setCamera(glm::vec3 eye, glm::vec3 lookat, glm::vec3 up,size_t idx)
+    {
+        camera_inst_vec[idx].SetCameraView(eye,lookat,up);
+    }
+    void CameraManager::setName(std::string name,size_t idx)
+    {
+        camera_name_vec[idx]=name;
+    }
+    bool CameraManager::del(size_t idx)
+    {   
+        //at least 1 camera.
+        if(getCount()==1)
+        {
+            return false;
+        }
+        return true;
+    }
+   

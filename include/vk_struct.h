@@ -46,6 +46,12 @@ namespace Sil
         alignas(16) glm::mat4 proj;
     };
 
+    struct GridUniformBufferObject
+    {
+        alignas(16) glm::mat4 view;
+        alignas(16) glm::mat4 proj;
+    };
+
     class Camera
     {
     private:
@@ -66,5 +72,24 @@ namespace Sil
         void SetCameraView(glm::vec3 eye, glm::vec3 lookat, glm::vec3 up);
         void UpdateViewMatrix();
     };
+
+    class CameraManager
+    {
+    private:
+        std::vector<Camera>camera_inst_vec;
+        std::vector<std::string>camera_name_vec;
+        size_t cur_cam_idx;
+    public:
+        CameraManager()=delete;
+        CameraManager(glm::vec3 eye, glm::vec3 lookat, glm::vec3 upVector,std::string name);
+        size_t getCurIdx();
+        void setCurIdx(size_t idx);
+        size_t getCount();
+        const Camera& getCamera(size_t idx);
+        const std::string& getName(size_t idx);
+        void setCamera(glm::vec3 eye, glm::vec3 lookat, glm::vec3 up,size_t idx);
+        void setName(std::string name,size_t idx);
+        bool del(size_t idx);
+    }
 }
 #endif

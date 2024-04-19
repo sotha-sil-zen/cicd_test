@@ -41,7 +41,7 @@ namespace Sil
                     P = glm::normalize(P); // nearest point
                 return P;
             };
-            if(app->last_mouse_pos_x==xpos&&app->last_mouse_pos_y==ypos)
+            if (app->last_mouse_pos_x == xpos && app->last_mouse_pos_y == ypos)
             {
                 return;
             }
@@ -56,14 +56,12 @@ namespace Sil
 
             glm::mat4 rotationMatrix(1.0f);
             rotationMatrix = glm::rotate(rotationMatrix, angle, -axis_in_world_coord);
-            position = (rotationMatrix * (position- pivot)) + pivot;
-            std::cout<<axis_in_world_coord.x<<" "<<axis_in_world_coord.y<<" "<<axis_in_world_coord.z<<std::endl;
-            app->camera.SetCameraView(position, app->camera.GetLookAt(), glm::mat3(rotationMatrix)*app->camera.GetUpVector());
+            position = (rotationMatrix * (position - pivot)) + pivot;
+            app->camera.SetCameraView(position, app->camera.GetLookAt(), glm::mat3(rotationMatrix) * app->camera.GetUpVector());
 
             app->last_mouse_pos_x = xpos;
             app->last_mouse_pos_y = ypos;
 
-            std::cout<<app->camera.GetEye().x<<" "<<app->camera.GetEye().y<<" "<<app->camera.GetEye().z<<std::endl;
             /*
             int viewportWidth, viewportHeight;
             glfwGetWindowSize(window, &viewportWidth, &viewportHeight);
@@ -190,7 +188,8 @@ namespace Sil
         createRenderPass();
         createDescriptorSetLayout();
         createGraphicsPipeline();
-        createDebugPipeline();
+        createGridPipeline();
+        // createDebugPipeline();
 
         createDepthResources();
         createFramebuffers();
@@ -550,6 +549,7 @@ namespace Sil
         VkPhysicalDeviceFeatures deviceFeatures{};
         // can't believe this.
         // deviceFeatures.samplerAnisotropy = VK_TRUE;
+        deviceFeatures.samplerAnisotropy = VK_FALSE;
 
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -883,6 +883,25 @@ namespace Sil
         {
             throw std::runtime_error("failed to create descriptor set layout!");
         }
+
+        // grid part
+        VkDescriptorSetLayoutBinding gridUboLayoutBinding{};
+        gridUboLayoutBinding.binding = 0;
+        gridUboLayoutBinding.descriptorCount = 1;
+        gridUboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        gridUboLayoutBinding.pImmutableSamplers = nullptr;
+        gridUboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        std::array<VkDescriptorSetLayoutBinding, 1> gridBindings = {gridUboLayoutBinding};
+        VkDescriptorSetLayoutCreateInfo gridLayoutInfo{};
+        gridLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        gridLayoutInfo.bindingCount = static_cast<uint32_t>(gridBindings.size());
+        gridLayoutInfo.pBindings = gridBindings.data();
+
+        if (vkCreateDescriptorSetLayout(device, &gridLayoutInfo, nullptr, &gridDescriptorSetLayout) != VK_SUCCESS)
+        {
+            throw std::runtime_error("failed to create descriptor set layout for grid!");
+        }
     }
 
     void VulkInterface::createGraphicsPipeline()
@@ -934,7 +953,7 @@ namespace Sil
         rasterizer.rasterizerDiscardEnable = VK_FALSE;
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+        rasterizer.cullMode = VK_CULL_MODE_NONE;
         rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         rasterizer.depthBiasEnable = VK_FALSE;
 
@@ -1002,6 +1021,137 @@ namespace Sil
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
         if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
+        {
+            throw std::runtime_error("failed to create graphics pipeline!");
+        }
+
+        vkDestroyShaderModule(device, fragShaderModule, nullptr);
+        vkDestroyShaderModule(device, vertShaderModule, nullptr);
+    }
+
+    void VulkInterface::createGridPipeline()
+    {
+        auto vertShaderCode = readFile("shaders/vert.grid.spv");
+        auto fragShaderCode = readFile("shaders/frag.grid.spv");
+
+        VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
+        VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+
+        VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+        vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        vertShaderStageInfo.module = vertShaderModule;
+        vertShaderStageInfo.pName = "main";
+
+        VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+        fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        fragShaderStageInfo.module = fragShaderModule;
+        fragShaderStageInfo.pName = "main";
+
+        VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+        VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+        auto bindingDescription = Vertex::getBindingDescription();
+        auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
+        vertexInputInfo.vertexBindingDescriptionCount = 1;
+        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+        vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+        vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
+        VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+        inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+        VkPipelineViewportStateCreateInfo viewportState{};
+        viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        viewportState.viewportCount = 1;
+        viewportState.scissorCount = 1;
+
+        VkPipelineRasterizationStateCreateInfo rasterizer{};
+        rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        rasterizer.depthClampEnable = VK_FALSE;
+        rasterizer.rasterizerDiscardEnable = VK_FALSE;
+        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+        rasterizer.lineWidth = 1.0f;
+        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+        rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        rasterizer.depthBiasEnable = VK_FALSE;
+
+        VkPipelineMultisampleStateCreateInfo multisampling{};
+        multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        multisampling.sampleShadingEnable = VK_FALSE;
+        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+        VkPipelineDepthStencilStateCreateInfo depthStencil{};
+        depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+        depthStencil.depthTestEnable = VK_TRUE;
+        depthStencil.depthWriteEnable = VK_TRUE;
+        depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+        depthStencil.depthBoundsTestEnable = VK_FALSE;
+        depthStencil.stencilTestEnable = VK_FALSE;
+
+        VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+        colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        colorBlendAttachment.blendEnable = VK_TRUE;
+        colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;           // 源颜色混合因子
+        colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA; // 目标颜色混合因子
+        colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;                            // 颜色混合操作
+        colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;                 // 源 Alpha 混合因子
+        colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;                // 目标 Alpha 混合因子
+        colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;                            // Alpha 混合操作
+
+        VkPipelineColorBlendStateCreateInfo colorBlending{};
+        colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+        colorBlending.logicOpEnable = VK_FALSE;
+        colorBlending.logicOp = VK_LOGIC_OP_COPY;
+        colorBlending.attachmentCount = 1;
+        colorBlending.pAttachments = &colorBlendAttachment;
+        colorBlending.blendConstants[0] = 0.0f;
+        colorBlending.blendConstants[1] = 0.0f;
+        colorBlending.blendConstants[2] = 0.0f;
+        colorBlending.blendConstants[3] = 0.0f;
+
+        std::vector<VkDynamicState> dynamicStates = {
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR};
+        VkPipelineDynamicStateCreateInfo dynamicState{};
+        dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+        dynamicState.pDynamicStates = dynamicStates.data();
+
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pipelineLayoutInfo.setLayoutCount = 1;
+        pipelineLayoutInfo.pSetLayouts = &gridDescriptorSetLayout;
+
+        if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &gridPipelineLayout) != VK_SUCCESS)
+        {
+            throw std::runtime_error("failed to create pipeline layout!");
+        }
+
+        VkGraphicsPipelineCreateInfo pipelineInfo{};
+        pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        pipelineInfo.stageCount = 2;
+        pipelineInfo.pStages = shaderStages;
+        pipelineInfo.pVertexInputState = &vertexInputInfo;
+        pipelineInfo.pInputAssemblyState = &inputAssembly;
+        pipelineInfo.pViewportState = &viewportState;
+        pipelineInfo.pRasterizationState = &rasterizer;
+        pipelineInfo.pMultisampleState = &multisampling;
+        pipelineInfo.pDepthStencilState = &depthStencil;
+        pipelineInfo.pColorBlendState = &colorBlending;
+        pipelineInfo.pDynamicState = &dynamicState;
+        pipelineInfo.layout = gridPipelineLayout;
+        pipelineInfo.renderPass = renderPass;
+        pipelineInfo.subpass = 0;
+        pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+
+        if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &gridPipeline) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create graphics pipeline!");
         }
@@ -1083,7 +1233,7 @@ namespace Sil
         VkPipelineColorBlendStateCreateInfo colorBlending{};
         colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         colorBlending.logicOpEnable = VK_FALSE;
-        colorBlending.logicOp = VK_LOGIC_OP_COPY;
+        colorBlending.logicOp = VK_LOGIC_OP_NO_OP;
         colorBlending.attachmentCount = 1;
         colorBlending.pAttachments = &colorBlendAttachment;
         colorBlending.blendConstants[0] = 0.0f;
@@ -1444,7 +1594,7 @@ For subpass self-dependency barriers, the source scope is all previously submitt
         samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.anisotropyEnable = VK_TRUE;
+        samplerInfo.anisotropyEnable = VK_FALSE;
         samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
         samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
         samplerInfo.unnormalizedCoordinates = VK_FALSE;
@@ -1568,6 +1718,19 @@ For subpass self-dependency barriers, the source scope is all previously submitt
                 vkMapMemory(device, uBuffersMemory[i][j], 0, bufferSize, 0, &uBuffersMapped[i][j]);
             }
         }
+
+        // grid part.
+        bufferSize = sizeof(GridUniformBufferObject);
+
+        GridUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        GridUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+        GridUniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        {
+            createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, GridUniformBuffers[i], GridUniformBuffersMemory[i]);
+
+            vkMapMemory(device, GridUniformBuffersMemory[i], 0, bufferSize, 0, &GridUniformBuffersMapped[i]);
+        }
     }
 
     void VulkInterface::createDescriptorPool()
@@ -1587,6 +1750,21 @@ For subpass self-dependency barriers, the source scope is all previously submitt
         poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 20);
 
         if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
+        {
+            throw std::runtime_error("failed to create descriptor pool!");
+        }
+
+        std::array<VkDescriptorPoolSize, 1> gridPoolSizes{};
+        gridPoolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        gridPoolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 10);
+
+        VkDescriptorPoolCreateInfo gridPoolInfo{};
+        gridPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        gridPoolInfo.poolSizeCount = static_cast<uint32_t>(gridPoolSizes.size());
+        gridPoolInfo.pPoolSizes = gridPoolSizes.data();
+        gridPoolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 20);
+
+        if (vkCreateDescriptorPool(device, &gridPoolInfo, nullptr, &gridDescriptorPool) != VK_SUCCESS)
         {
             throw std::runtime_error("failed to create descriptor pool!");
         }
@@ -1689,6 +1867,39 @@ For subpass self-dependency barriers, the source scope is all previously submitt
 
                 vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
             }
+        }
+
+        // grid part.
+        std::vector<VkDescriptorSetLayout> gridLayouts(MAX_FRAMES_IN_FLIGHT, gridDescriptorSetLayout);
+        VkDescriptorSetAllocateInfo gridAllocInfo{};
+        gridAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        gridAllocInfo.descriptorPool = gridDescriptorPool;
+        gridAllocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+        gridAllocInfo.pSetLayouts = gridLayouts.data();
+
+        gridDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+        if (vkAllocateDescriptorSets(device, &gridAllocInfo, gridDescriptorSets.data()) != VK_SUCCESS)
+        {
+            throw std::runtime_error("failed to allocate descriptor sets!");
+        }
+
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        {
+            VkDescriptorBufferInfo bufferInfo{};
+            bufferInfo.buffer = GridUniformBuffers[i];
+            bufferInfo.offset = 0;
+            bufferInfo.range = sizeof(GridUniformBufferObject);
+
+            std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
+
+            descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrites[0].dstSet = gridDescriptorSets[i];
+            descriptorWrites[0].dstBinding = 0;
+            descriptorWrites[0].dstArrayElement = 0;
+            descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            descriptorWrites[0].descriptorCount = 1;
+            descriptorWrites[0].pBufferInfo = &bufferInfo;
+            vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
         }
     }
 
@@ -1877,6 +2088,11 @@ For subpass self-dependency barriers, the source scope is all previously submitt
             ubo.is_selected = _mesh_manager._mesh_selected[j];
             memcpy(uBuffersMapped[currentImage][j], &ubo, sizeof(ubo));
         }
+
+        GridUniformBufferObject gridubo{};
+        gridubo.view = ubo.view;
+        gridubo.proj = ubo.proj;
+        memcpy(GridUniformBuffersMapped[currentImage], &gridubo, sizeof(gridubo));
     }
 
     void VulkInterface::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
@@ -1924,6 +2140,7 @@ For subpass self-dependency barriers, the source scope is all previously submitt
 
         VkBuffer vertexBuffers[] = {vertexBuffer};
         VkDeviceSize offsets[] = {0};
+
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
         vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
@@ -1944,6 +2161,12 @@ For subpass self-dependency barriers, the source scope is all previously submitt
 
             vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_mesh_manager._meshes[i]._faces.size()), 1, 0, 0, 0);
         }
+
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gridPipeline);
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gridPipelineLayout, 0, 1, &gridDescriptorSets[currentFrame], 0, nullptr);
+        vkCmdDraw(commandBuffer, 6, 1, 0, 0);
         /*
         vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debugPipeline);
@@ -1986,14 +2209,68 @@ For subpass self-dependency barriers, the source scope is all previously submitt
 
     void VulkInterface::imguiDraw()
     {
-        imguiShowOutliner();
+        imguiShowMeshOutliner();
     }
 
-    void VulkInterface::imguiShowOutliner()
+    void VulkInterface::imguiShowMeshOutliner()
     {
-        ImGui::ShowDemoWindow();
+        ImGui::Begin("Mesh Outliner");
+        if (ImGui::BeginTable("", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+        {
+            for (int i = 0; i < _mesh_manager._meshes.size(); i++)
+            {
+                // MyItem& item = items[i];
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
 
-        ImGui::Begin("Outliner");
+                bool was_selected = _mesh_manager._mesh_selected[i];
+
+                bool pressed = ImGui::Selectable(std::to_string(i).c_str(), _mesh_manager._mesh_selected[i], ImGuiSelectableFlags_SpanAllColumns);
+                ImGui::TableNextColumn();
+                ImGui::Text("Some other contents");
+
+                if (pressed)
+                {
+                    _mesh_manager._mesh_selected[i] = !_mesh_manager._mesh_selected[i];
+                    if (ImGui::GetIO().KeyShift && _mesh_manager._last_selected_idx != -1)
+                    {
+                        // 如果按下Shift键，则选择范围内的所有项目
+                        int start = std::min(_mesh_manager._last_selected_idx, i);
+                        int end = std::max(_mesh_manager._last_selected_idx, i);
+                        for (int j = start; j <= end; j++)
+                        {
+                            _mesh_manager._mesh_selected[j] = _mesh_manager._mesh_selected[i];
+                        }
+                    }
+                    else if (!ImGui::GetIO().KeyCtrl)
+                    {
+                        // 如果没有按下Ctrl键，则取消选择其他所有项目
+                        for (int j = 0; j < _mesh_manager._meshes.size(); j++)
+                        {
+                            if (j != i)
+                                _mesh_manager._mesh_selected[j] = false;
+                        }
+                    }
+
+                    if (!_mesh_manager._mesh_selected[i])
+                    {
+                        _mesh_manager._last_selected_idx = -1;
+                    }
+                    else
+                    {
+                        _mesh_manager._last_selected_idx = i; // 更新最后一个被选中的项的索引
+                    }
+                }
+            }
+            ImGui::EndTable();
+        }
+
+        ImGui::End();
+    }
+
+    void VulkInterface::imguiShowCameraOutliner()
+    {
+        ImGui::Begin("Mesh Outliner");
         if (ImGui::BeginTable("", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
         {
             for (int i = 0; i < _mesh_manager._meshes.size(); i++)
