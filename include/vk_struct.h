@@ -39,29 +39,41 @@ namespace Sil
     };
 
     struct UniformBufferObject
-    {   
+    {
         alignas(4) int is_selected;
         alignas(16) glm::mat4 model;
         alignas(16) glm::mat4 view;
         alignas(16) glm::mat4 proj;
     };
-
     struct GridUniformBufferObject
-    {
+    {   
+        alignas(4) float grid_width;
+        alignas(4) float grid_space;
         alignas(16) glm::mat4 view;
         alignas(16) glm::mat4 proj;
+        
     };
 
     class Camera
     {
     private:
         glm::mat4 m_viewMatrix;
-        glm::vec3 m_eye; // Camera position in 3D
-        glm::vec3 m_lookAt; // Point that the camera is looking at
+        glm::vec3 m_eye;      // Camera position in 3D
+        glm::vec3 m_lookAt;   // Point that the camera is looking at
         glm::vec3 m_upVector; // Orientation of the camera
+
+        glm::mat4 m_projectionMatrix;
+        float m_fov;         // Field of view for perspective projection
+        float m_aspectRatio; // Aspect ratio for perspective projection
+        float m_nearPlane;   // Near plane distance for perspective projection
+        float m_farPlane;    // Far plane distance for perspective projection
+        float m_orthoSize;   // Size for orthographic projection
+        bool m_isOrtho;      // Flag to indicate if current projection is orthographic
     public:
         Camera();
-        Camera(glm::vec3 eye, glm::vec3 lookat, glm::vec3 upVector);
+        //Camera(glm::vec3 eye, glm::vec3 lookat, glm::vec3 upVector, float fov, float aspectRatio, float nearPlane, float farPlane);
+        //Camera(glm::vec3 eye, glm::vec3 lookat, glm::vec3 upVector, float orthoSize, float aspectRatio, float nearPlane, float farPlane);
+        glm::mat4 GetProjMatrix();
         glm::mat4 GetViewMatrix();
         glm::vec3 GetEye();
         glm::vec3 GetUpVector();
@@ -71,25 +83,52 @@ namespace Sil
         glm::vec3 GetRightVector();
         void SetCameraView(glm::vec3 eye, glm::vec3 lookat, glm::vec3 up);
         void UpdateViewMatrix();
+        // Setters for perspective projection parameters
+        void SetPerspectiveProjection(float fov, float aspectRatio, float nearPlane, float farPlane);
+        // Setters for orthographic projection parameters
+        void SetOrthographicProjection(float orthoSize, float aspectRatio, float nearPlane, float farPlane);
+        float getFov();
+        float getAspectRatio();
+        float getNearPlane();
+        float getFarPlane();
+        float getOrthoSize();
+        bool IsOrthoNow();
+        void switchProjType();
     };
 
+    //0 for unfreezed, 1 for freezed.
     class CameraManager
     {
     private:
-        std::vector<Camera>camera_inst_vec;
-        std::vector<std::string>camera_name_vec;
+        std::vector<Camera> camera_inst_vec;
+        std::vector<std::string> camera_name_vec;
+        std::vector<int>camera_freezed_vec;
         size_t cur_cam_idx;
+        
     public:
-        CameraManager()=delete;
-        CameraManager(glm::vec3 eye, glm::vec3 lookat, glm::vec3 upVector,std::string name);
+        CameraManager();
+        CameraManager(glm::vec3 eye, glm::vec3 lookat, glm::vec3 upVector, float fov, float aspectRatio, float nearPlane, float farPlane ,std::string name);
         size_t getCurIdx();
         void setCurIdx(size_t idx);
         size_t getCount();
-        const Camera& getCamera(size_t idx);
-        const std::string& getName(size_t idx);
-        void setCamera(glm::vec3 eye, glm::vec3 lookat, glm::vec3 up,size_t idx);
-        void setName(std::string name,size_t idx);
-        bool del(size_t idx);
-    }
+        const Camera &getCamera(size_t idx) const;
+        const std::string &getName(size_t idx) const;
+        //std::vector<bool> has specilizition of std::vector<T> , operator[] return a copy ,not ref.
+        const int &getFreezed(size_t idx) const;
+        const Camera &getCurCamera() const;
+        const std::string &getCurName() const;
+        const int &getCurFreezed() const;
+
+        Camera &getCamera(size_t idx);
+        std::string &getName(size_t idx);
+        int &getFreezed(size_t idx);
+        Camera &getCurCamera();
+        std::string &getCurName();
+        int &getCurFreezed();
+        void copyCurCamera(std::string name);
+        void setName(std::string name, size_t idx);
+        void setFreezed(int freezed_int, size_t idx);
+        bool del();
+    };
 }
 #endif

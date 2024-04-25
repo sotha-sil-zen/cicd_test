@@ -1,6 +1,9 @@
 #version 450
 
-layout(set = 0, binding = 0) uniform ViewUniforms {
+layout(set = 0, binding = 0) uniform ViewUniforms 
+{
+    float grid_width;
+    float grid_space;
     mat4 view;
     mat4 proj;
 } gubo;
@@ -17,20 +20,20 @@ vec4 grid(vec3 fragPos3D, float scale, bool drawAxis)
     float minimumz = min(derivative.y, 1);
     float minimumx = min(derivative.x, 1);
     vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
-    if( mod(fragPos3D.x , 1.0) < 0.01)
+    if( mod(fragPos3D.x , gubo.grid_space) < gubo.grid_width)
     {
     	color.xyz = vec3(0.2);
     	color.w = 0.5;
-        if(fragPos3D.x>=-0.01&&fragPos3D.x<=0.01)
+        if(fragPos3D.x>=-gubo.grid_width&&fragPos3D.x<=gubo.grid_width)
         {
             color.xyz = vec3(0.0, 0.0, 1.0);
         }
     }
-    if( mod(fragPos3D.z , 1.0) < 0.01)
+    if( mod(fragPos3D.z , gubo.grid_space) < gubo.grid_width)
     {
     	color.xyz = vec3(0.2);
     	color.w = 0.5;
-        if(fragPos3D.z>=-0.01&&fragPos3D.z<=0.01)
+        if(fragPos3D.z>=-gubo.grid_width&&fragPos3D.z<=gubo.grid_width)
         {
             color.xyz = vec3(1.0, 0.0, 0.0);
         }

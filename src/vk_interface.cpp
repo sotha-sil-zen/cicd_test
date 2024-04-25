@@ -24,7 +24,7 @@ namespace Sil
     void VulkInterface::mousePosCallback(GLFWwindow *window, double xpos, double ypos)
     {
         auto app = reinterpret_cast<VulkInterface *>(glfwGetWindowUserPointer(window));
-        if (app->is_mouse_pressed)
+        if (app->is_camera_rorating)
         {
             int viewportWidth, viewportHeight;
             glfwGetWindowSize(window, &viewportWidth, &viewportHeight);
@@ -49,62 +49,57 @@ namespace Sil
             glm::vec3 vb = get_arcball_vector(xpos, ypos);
             float angle = std::acos(std::min(1.0f, glm::dot(va, vb)));
             glm::vec3 axis_in_camera_coord = glm::normalize(glm::cross(va, vb));
-            glm::vec3 axis_in_world_coord = glm::inverse(glm::mat3(app->camera.GetViewMatrix())) * axis_in_camera_coord;
+            glm::vec3 axis_in_world_coord = glm::inverse(glm::mat3(app->camera_manager.getCurCamera().GetViewMatrix())) * axis_in_camera_coord;
 
-            glm::vec4 position(app->camera.GetEye().x, app->camera.GetEye().y, app->camera.GetEye().z, 1);
-            glm::vec4 pivot(app->camera.GetLookAt().x, app->camera.GetLookAt().y, app->camera.GetLookAt().z, 1);
+            glm::vec4 position(app->camera_manager.getCurCamera().GetEye().x, app->camera_manager.getCurCamera().GetEye().y, app->camera_manager.getCurCamera().GetEye().z, 1);
+            glm::vec4 pivot(app->camera_manager.getCurCamera().GetLookAt().x, app->camera_manager.getCurCamera().GetLookAt().y, app->camera_manager.getCurCamera().GetLookAt().z, 1);
 
             glm::mat4 rotationMatrix(1.0f);
             rotationMatrix = glm::rotate(rotationMatrix, angle, -axis_in_world_coord);
             position = (rotationMatrix * (position - pivot)) + pivot;
-            app->camera.SetCameraView(position, app->camera.GetLookAt(), glm::mat3(rotationMatrix) * app->camera.GetUpVector());
+            app->camera_manager.getCurCamera().SetCameraView(position, app->camera_manager.getCurCamera().GetLookAt(), glm::mat3(rotationMatrix) * app->camera_manager.getCurCamera().GetUpVector());
 
             app->last_mouse_pos_x = xpos;
             app->last_mouse_pos_y = ypos;
-
-            /*
+        }
+        else if (app->is_camera_moving)
+        {
             int viewportWidth, viewportHeight;
             glfwGetWindowSize(window, &viewportWidth, &viewportHeight);
-
-            glm::vec4 position(app->camera.GetEye().x, app->camera.GetEye().y, app->camera.GetEye().z, 1);
-            glm::vec4 pivot(app->camera.GetLookAt().x, app->camera.GetLookAt().y, app->camera.GetLookAt().z, 1);
-
-            float arcball_radius=std::min(viewportWidth,viewportHeight)/2;
-            float deltaAngleX = (2 * M_PI / viewportWidth); // a movement from left to right = 2*PI = 360 deg
-            float deltaAngleY = (M_PI / viewportHeight);    // a movement from top to bottom = PI = 180 deg
-            float xAngle = (app->last_mouse_pos_x - xpos) * deltaAngleX;
-            float yAngle = (app->last_mouse_pos_y - ypos) * deltaAngleY;
-
-            std::cout<<xAngle<<" "<<yAngle<<std::endl;
-            float cosAngle = glm::dot(app->camera.GetViewDir(), app->camera.GetUpVector());
-            if (cosAngle * glm::sign(deltaAngleY) > 0.99f)
+            if (app->last_mouse_pos_x == xpos && app->last_mouse_pos_y == ypos)
             {
-                deltaAngleY = 0;
+                return;
             }
+            glm::vec3 lookat = app->camera_manager.getCurCamera().GetLookAt();
+            glm::vec3 eye = app->camera_manager.getCurCamera().GetEye();
+            glm::vec3 up_vec = app->camera_manager.getCurCamera().GetUpVector();
+            glm::vec3 right_vec = glm::normalize(glm::cross(lookat - eye, up_vec));
 
+            float fov = app->camera_manager.getCurCamera().getFov();
+            float aspect = app->camera_manager.getCurCamera().getAspectRatio();
+            float zFar = app->camera_manager.getCurCamera().getFarPlane();
+            float farHeight = 2.0f * zFar * glm::tan(glm::radians(fov / 2.0f)); // 计算far平面高度
+            float farWidth = farHeight * aspect;                                // 计算far平面宽度
+            float zNear = app->camera_manager.getCurCamera().getFarPlane();
+            float nearHeight = 2.0f * zNear * glm::tan(glm::radians(fov / 2.0f)); // 计算far平面高度
+            float nearWidth = nearHeight * aspect;                                // 计算far平面宽度
 
-            glm::mat4 rotationMatrixX(1.0f);
-            rotationMatrixX = glm::rotate(rotationMatrixX, xAngle, app->camera.GetUpVector());
-            position = (rotationMatrixX * (position - pivot)) + pivot;
+            float hs = (farHeight + nearHeight) / 4.0, ws = (farWidth + nearWidth) / 4.0;
 
-            // step 3: Rotate the camera around the pivot point on the second axis.
-            glm::mat4 rotationMatrixY(1.0f);
-            rotationMatrixY = glm::rotate(rotationMatrixY, yAngle, app->camera.GetUpVector());
-            glm::vec3 finalPosition = (rotationMatrixY * (position - pivot)) + pivot;
-
-            // Update the camera view (we keep the same lookat and the same up vector)
-            app->camera.SetCameraView(finalPosition, app->camera.GetLookAt(), app->camera.GetUpVector());
+            glm::vec3 panVector = right_vec * float((app->last_mouse_pos_x - xpos) / viewportWidth) * ws + up_vec * float((ypos - app->last_mouse_pos_y) / viewportHeight) * hs;
+            lookat += panVector;
+            eye += panVector;
+            app->camera_manager.getCurCamera().SetCameraView(eye, lookat, up_vec);
 
             app->last_mouse_pos_x = xpos;
             app->last_mouse_pos_y = ypos;
-            */
         }
     }
 
     void VulkInterface::mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
     {
         auto app = reinterpret_cast<VulkInterface *>(glfwGetWindowUserPointer(window));
-        if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_LEFT)
+        if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_LEFT && (!app->camera_manager.getCurFreezed()))
         {
             double xPos, yPos;
             glfwGetCursorPos(window, &xPos, &yPos);
@@ -114,7 +109,28 @@ namespace Sil
             bool handleMouseInput = !ImGui::GetIO().WantCaptureMouse;
             if (handleMouseInput)
             {
-                app->is_mouse_pressed = true;
+                app->is_camera_rorating = true;
+                app->last_mouse_pos_x = xPos;
+                app->last_mouse_pos_y = yPos;
+            }
+            else
+            {
+                // 当鼠标左键在widget内被点击时触发的逻辑
+                // 在这里添加你想要执行的代码
+                std::cout << "yyyy" << std::endl;
+            }
+        }
+        else if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_RIGHT && (!app->camera_manager.getCurFreezed()))
+        {
+            double xPos, yPos;
+            glfwGetCursorPos(window, &xPos, &yPos);
+            int viewportWidth, viewportHeight;
+            glfwGetWindowSize(window, &viewportWidth, &viewportHeight);
+            // 在此处处理鼠标左键按下事件
+            bool handleMouseInput = !ImGui::GetIO().WantCaptureMouse;
+            if (handleMouseInput)
+            {
+                app->is_camera_moving = true;
                 app->last_mouse_pos_x = xPos;
                 app->last_mouse_pos_y = yPos;
             }
@@ -127,7 +143,41 @@ namespace Sil
         }
         else if (action == GLFW_RELEASE)
         {
-            app->is_mouse_pressed = false;
+            app->is_camera_rorating = false;
+            app->is_camera_moving = false;
+        }
+    }
+
+    void VulkInterface::mouseScrollCallback(GLFWwindow *window, double xpos, double ypos)
+    {
+        bool handleMouseInput = !ImGui::GetIO().WantCaptureMouse;
+        auto app = reinterpret_cast<VulkInterface *>(glfwGetWindowUserPointer(window));
+        if (handleMouseInput && (!app->camera_manager.getCurFreezed()))
+        {
+            double scale_factor = ypos > 0.0 ? 1.25 : 0.8;
+            glm::vec3 cur_eye = app->camera_manager.getCurCamera().GetEye();
+            glm::vec3 cur_lookat = app->camera_manager.getCurCamera().GetLookAt();
+            glm::vec3 this_vec = (cur_eye - cur_lookat);
+            this_vec *= scale_factor;
+            cur_eye = cur_lookat + this_vec;
+            app->camera_manager.getCurCamera().SetCameraView(cur_eye, cur_lookat, app->camera_manager.getCurCamera().GetUpVector());
+
+            float far_plane = app->camera_manager.getCurCamera().getFarPlane();
+            float near_plane = app->camera_manager.getCurCamera().getNearPlane();
+            float plane_dist = scale_factor * (far_plane - near_plane);
+            far_plane = near_plane + plane_dist;
+            if (app->camera_manager.getCurCamera().IsOrthoNow())
+            {
+                app->camera_manager.getCurCamera().SetOrthographicProjection(app->camera_manager.getCurCamera().getOrthoSize(),
+                                                                             app->camera_manager.getCurCamera().getAspectRatio(),
+                                                                             near_plane, far_plane);
+            }
+            else
+            {
+                app->camera_manager.getCurCamera().SetPerspectiveProjection(app->camera_manager.getCurCamera().getFov(),
+                                                                            app->camera_manager.getCurCamera().getAspectRatio(),
+                                                                            near_plane, far_plane);
+            }
         }
     }
 
@@ -174,6 +224,7 @@ namespace Sil
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
         glfwSetMouseButtonCallback(window, mouseButtonCallback);
         glfwSetCursorPosCallback(window, mousePosCallback);
+        glfwSetScrollCallback(window, mouseScrollCallback);
     }
 
     void VulkInterface::initVulkan()
@@ -2077,8 +2128,8 @@ For subpass self-dependency barriers, the source scope is all previously submitt
         // ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = camera.GetViewMatrix();
-        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+        ubo.view = camera_manager.getCurCamera().GetViewMatrix();
+        ubo.proj = camera_manager.getCurCamera().GetProjMatrix();
         ubo.proj[1][1] *= -1;
 
         memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
@@ -2090,6 +2141,8 @@ For subpass self-dependency barriers, the source scope is all previously submitt
         }
 
         GridUniformBufferObject gridubo{};
+        gridubo.grid_space = grid_space;
+        gridubo.grid_width = grid_width;
         gridubo.view = ubo.view;
         gridubo.proj = ubo.proj;
         memcpy(GridUniformBuffersMapped[currentImage], &gridubo, sizeof(gridubo));
@@ -2161,32 +2214,14 @@ For subpass self-dependency barriers, the source scope is all previously submitt
 
             vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_mesh_manager._meshes[i]._faces.size()), 1, 0, 0, 0);
         }
-
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gridPipeline);
-        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gridPipelineLayout, 0, 1, &gridDescriptorSets[currentFrame], 0, nullptr);
-        vkCmdDraw(commandBuffer, 6, 1, 0, 0);
-        /*
-        vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, debugPipeline);
-        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-        for (size_t i = 0; i < _mesh_manager._meshes.size(); ++i)
+        if (draw_grid)
         {
-            if (!_mesh_manager._mesh_selected[i])
-            {
-
-            }
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffers_[i], offsets);
-
-            vkCmdBindIndexBuffer(commandBuffer, indexBuffers_[i], 0, VK_INDEX_TYPE_UINT32);
-
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &_mesh_manager._descriptorSets[currentFrame][i], 0, nullptr);
-
-            vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_mesh_manager._meshes[i]._faces.size()), 1, 0, 0, 0);
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gridPipeline);
+            vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+            vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gridPipelineLayout, 0, 1, &gridDescriptorSets[currentFrame], 0, nullptr);
+            vkCmdDraw(commandBuffer, 6, 1, 0, 0);
         }
-        */
 
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -2209,119 +2244,143 @@ For subpass self-dependency barriers, the source scope is all previously submitt
 
     void VulkInterface::imguiDraw()
     {
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
+        int viewportWidth, viewportHeight;
+        glfwGetWindowSize(window, &viewportWidth, &viewportHeight);
+        ImGui::SetNextWindowSizeConstraints(ImVec2(100, (float)viewportHeight), ImVec2(FLT_MAX, (float)viewportHeight));
+        ImGui::Begin("Menus", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_MenuBar);
+        if (ImGui::BeginMenuBar())
+        {
+            if (ImGui::BeginMenu("Menu"))
+            {
+                ImGui::Checkbox("Draw Grid", &draw_grid);
+                if (draw_grid)
+                {
+                    ImGui::InputFloat("Grid Space", &grid_space, grid_space / 100);
+                    ImGui::InputFloat("Grid Width", &grid_width, grid_width / 10);
+                }
+                ImGui::EndMenu();
+            }
+            ImGui::EndMenuBar();
+        }
+
         imguiShowMeshOutliner();
+        imguiShowCameraOutliner();
+        ImGui::End();
     }
 
     void VulkInterface::imguiShowMeshOutliner()
     {
-        ImGui::Begin("Mesh Outliner");
-        if (ImGui::BeginTable("", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+        if (ImGui::CollapsingHeader("Mesh Outliner"))
         {
-            for (int i = 0; i < _mesh_manager._meshes.size(); i++)
+            if (ImGui::BeginTable("", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders | ImGuiTableFlags_SizingStretchProp))
             {
-                // MyItem& item = items[i];
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-
-                bool was_selected = _mesh_manager._mesh_selected[i];
-
-                bool pressed = ImGui::Selectable(std::to_string(i).c_str(), _mesh_manager._mesh_selected[i], ImGuiSelectableFlags_SpanAllColumns);
-                ImGui::TableNextColumn();
-                ImGui::Text("Some other contents");
-
-                if (pressed)
+                for (int i = 0; i < _mesh_manager._meshes.size(); i++)
                 {
-                    _mesh_manager._mesh_selected[i] = !_mesh_manager._mesh_selected[i];
-                    if (ImGui::GetIO().KeyShift && _mesh_manager._last_selected_idx != -1)
-                    {
-                        // 如果按下Shift键，则选择范围内的所有项目
-                        int start = std::min(_mesh_manager._last_selected_idx, i);
-                        int end = std::max(_mesh_manager._last_selected_idx, i);
-                        for (int j = start; j <= end; j++)
-                        {
-                            _mesh_manager._mesh_selected[j] = _mesh_manager._mesh_selected[i];
-                        }
-                    }
-                    else if (!ImGui::GetIO().KeyCtrl)
-                    {
-                        // 如果没有按下Ctrl键，则取消选择其他所有项目
-                        for (int j = 0; j < _mesh_manager._meshes.size(); j++)
-                        {
-                            if (j != i)
-                                _mesh_manager._mesh_selected[j] = false;
-                        }
-                    }
+                    // MyItem& item = items[i];
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
 
-                    if (!_mesh_manager._mesh_selected[i])
+                    bool was_selected = _mesh_manager._mesh_selected[i];
+
+                    bool pressed = ImGui::Selectable(std::to_string(i).c_str(), _mesh_manager._mesh_selected[i], ImGuiSelectableFlags_SpanAllColumns);
+                    ImGui::TableNextColumn();
+                    ImGui::Text("Some other contents");
+
+                    if (pressed)
                     {
-                        _mesh_manager._last_selected_idx = -1;
-                    }
-                    else
-                    {
-                        _mesh_manager._last_selected_idx = i; // 更新最后一个被选中的项的索引
+                        _mesh_manager._mesh_selected[i] = !_mesh_manager._mesh_selected[i];
+                        if (ImGui::GetIO().KeyShift && _mesh_manager._last_selected_idx != -1)
+                        {
+                            // 如果按下Shift键，则选择范围内的所有项目
+                            int start = std::min(_mesh_manager._last_selected_idx, i);
+                            int end = std::max(_mesh_manager._last_selected_idx, i);
+                            for (int j = start; j <= end; j++)
+                            {
+                                _mesh_manager._mesh_selected[j] = _mesh_manager._mesh_selected[i];
+                            }
+                        }
+                        else if (!ImGui::GetIO().KeyCtrl)
+                        {
+                            // 如果没有按下Ctrl键，则取消选择其他所有项目
+                            for (int j = 0; j < _mesh_manager._meshes.size(); j++)
+                            {
+                                if (j != i)
+                                    _mesh_manager._mesh_selected[j] = false;
+                            }
+                        }
+
+                        if (!_mesh_manager._mesh_selected[i])
+                        {
+                            _mesh_manager._last_selected_idx = -1;
+                        }
+                        else
+                        {
+                            _mesh_manager._last_selected_idx = i; // 更新最后一个被选中的项的索引
+                        }
                     }
                 }
+                ImGui::EndTable();
             }
-            ImGui::EndTable();
         }
-
-        ImGui::End();
     }
 
     void VulkInterface::imguiShowCameraOutliner()
     {
-        ImGui::Begin("Mesh Outliner");
-        if (ImGui::BeginTable("", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+        // ImGui::Begin("Camera Outliner");
+        if (ImGui::CollapsingHeader("Camera Outliner"))
         {
-            for (int i = 0; i < _mesh_manager._meshes.size(); i++)
+            if (ImGui::Button("Add Camera"))
             {
-                // MyItem& item = items[i];
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-
-                bool was_selected = _mesh_manager._mesh_selected[i];
-
-                bool pressed = ImGui::Selectable(std::to_string(i).c_str(), _mesh_manager._mesh_selected[i], ImGuiSelectableFlags_SpanAllColumns);
-                ImGui::TableNextColumn();
-                ImGui::Text("Some other contents");
-
-                if (pressed)
-                {
-                    _mesh_manager._mesh_selected[i] = !_mesh_manager._mesh_selected[i];
-                    if (ImGui::GetIO().KeyShift && _mesh_manager._last_selected_idx != -1)
-                    {
-                        // 如果按下Shift键，则选择范围内的所有项目
-                        int start = std::min(_mesh_manager._last_selected_idx, i);
-                        int end = std::max(_mesh_manager._last_selected_idx, i);
-                        for (int j = start; j <= end; j++)
-                        {
-                            _mesh_manager._mesh_selected[j] = _mesh_manager._mesh_selected[i];
-                        }
-                    }
-                    else if (!ImGui::GetIO().KeyCtrl)
-                    {
-                        // 如果没有按下Ctrl键，则取消选择其他所有项目
-                        for (int j = 0; j < _mesh_manager._meshes.size(); j++)
-                        {
-                            if (j != i)
-                                _mesh_manager._mesh_selected[j] = false;
-                        }
-                    }
-
-                    if (!_mesh_manager._mesh_selected[i])
-                    {
-                        _mesh_manager._last_selected_idx = -1;
-                    }
-                    else
-                    {
-                        _mesh_manager._last_selected_idx = i; // 更新最后一个被选中的项的索引
-                    }
-                }
+                camera_manager.copyCurCamera(std::string(camera_outliner_input_buffer));
+                memset(camera_outliner_input_buffer, 0, sizeof(camera_outliner_input_buffer));
             }
-            ImGui::EndTable();
-        }
+            ImGui::InputText("Enter Text", camera_outliner_input_buffer, IM_ARRAYSIZE(camera_outliner_input_buffer));
+            if (ImGui::Button("Delete Camera"))
+            {
+                camera_manager.del();
+            }
+            if (ImGui::Button("Freeze/Unfreeze Camera"))
+            {
+                // this is not ok...
+                camera_manager.setFreezed(1 - camera_manager.getCurFreezed(), camera_manager.getCurIdx());
+            }
+            /*
+            if (ImGui::Button("Switch Projection Type"))
+            {
+                //this is not ok...
+                camera_manager.getCurCamera().switchProjType();
+            }
+            */
+            if (ImGui::BeginTable("Cameras", 3, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders | ImGuiTableFlags_SizingStretchProp))
+            {
+                ImGui::TableSetupColumn("Index");
+                ImGui::TableSetupColumn("Name");
+                ImGui::TableSetupColumn("Movable?");
+                ImGui::TableHeadersRow();
+                int cut_idx = camera_manager.getCurIdx();
+                for (int i = 0; i < camera_manager.getCount(); i++)
+                {
+                    // MyItem& item = items[i];
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
 
-        ImGui::End();
+                    bool was_selected = i == cut_idx;
+
+                    bool pressed = ImGui::Selectable(std::to_string(i).c_str(), was_selected, ImGuiSelectableFlags_SpanAllColumns);
+                    ImGui::TableNextColumn();
+                    ImGui::Text(camera_manager.getName(i).c_str());
+
+                    if (pressed)
+                    {
+                        camera_manager.setCurIdx(i);
+                    }
+                    ImGui::TableNextColumn();
+                    ImGui::Text(camera_manager.getFreezed(i) ? "Freezed" : "Movable");
+                }
+                ImGui::EndTable();
+            }
+        }
     }
 
     void VulkInterface::recreateSwapChain()
@@ -2546,6 +2605,6 @@ For subpass self-dependency barriers, the source scope is all previously submitt
     }
     void VulkInterface::createCamera()
     {
-        camera = Camera(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        camera_manager = CameraManager(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), 45.0f, swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f, "main");
     }
 }

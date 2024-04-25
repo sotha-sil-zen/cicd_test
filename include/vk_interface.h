@@ -4,8 +4,10 @@
 #include "vk_struct.h"
 
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
+
 
 #include "tmesh.h"
 
@@ -37,6 +39,10 @@ namespace Sil
     class VulkInterface
     {
     public:
+        VulkInterface()
+        {
+
+        }
         void run()
         {
             initWindow(800, 600);
@@ -114,7 +120,8 @@ namespace Sil
         std::vector<VkSemaphore> renderFinishedSemaphores;
         std::vector<VkFence> inFlightFences;
 
-        Camera camera;
+        CameraManager camera_manager;
+        char camera_outliner_input_buffer[128] = { 0 };
 
         uint32_t currentFrame = 0;
 
@@ -122,9 +129,16 @@ namespace Sil
 
         double last_mouse_pos_x;
         double last_mouse_pos_y;
-        bool is_mouse_pressed = false;
+        bool is_camera_rorating = false;
+        bool is_camera_moving=false;
+
+        bool draw_grid=true;
+        float grid_space=1.0;
+        float grid_width=0.01;
+
         void static mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);
         void static mousePosCallback(GLFWwindow* window, double xpos, double ypos);
+        void static mouseScrollCallback(GLFWwindow* window, double xpos, double ypos);
         void static framebufferResizeCallback(GLFWwindow *window, int width, int height);
         std::vector<char> static readFile(const std::string &filename);
         VkShaderModule createShaderModule(const std::vector<char> &code);
