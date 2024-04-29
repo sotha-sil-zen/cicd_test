@@ -135,28 +135,28 @@ namespace Sil
     public:
         enum class GizmoType
         {
-            NONE,
-            TRANSLATE,
-            SCALE,
-            ROTATE,
+            NONE=0,
+            TRANSLATE=1,
+            SCALE=2,
+            ROTATE=3,
         };
         enum class GizmoAction
         {
-            NONE,
-            MOVE_X,
-            MOVE_Y,
-            MOVE_Z,
-            MOVE_YZ,
-            MOVE_XZ,
-            MOVE_XY,
-            MOVE_XYZ,
-            ROTATE_X,
-            ROTATE_Y,
-            ROTATE_Z,
-            SCALE_X,
-            SCALE_Y,
-            SCALE_Z,
-            SCALE_XYZ,
+            NONE=0,
+            MOVE_X=1,
+            MOVE_Y=2,
+            MOVE_Z=3,
+            MOVE_YZ=4,
+            MOVE_XZ=5,
+            MOVE_XY=6,
+            MOVE_XYZ=7,
+            ROTATE_X=8,
+            ROTATE_Y=9,
+            ROTATE_Z=10,
+            SCALE_X=11,
+            SCALE_Y=12,
+            SCALE_Z=13,
+            SCALE_XYZ=14,
         };
 
         Gizmo();
@@ -170,6 +170,8 @@ namespace Sil
         GizmoType type;
         GizmoAction action;
         bool local_toggle;
+        glm::mat4 pre_trans_mat;
+        glm::vec3 gizmo_pos;
         std::vector<Vertex> vertex_vec;
         std::vector<uint32_t> facet_vec;
         // static bool intersect_ray_plane(const GizmoRay& ray, const )
@@ -177,7 +179,8 @@ namespace Sil
         std::pair<bool, float> rayIntersectGizmoMesh(const GizmoRay &ray);
         void makeBox(const glm::vec3 &min_bounds, const glm::vec3 &max_bounds);
         void makeLathed(const glm::vec3 &axis, const glm::vec3 &arm1, const glm::vec3 &arm2, int slices, const std::vector<glm::vec2> &points, const float eps = 0.0f);
-        void switchType();
+        void switchType(GizmoType nonetype);
+        void switchType(GizmoType type,bool use_transform, glm::mat4 transform_mat, glm::vec3 pos);
     };
 }
 #endif
