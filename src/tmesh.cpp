@@ -94,9 +94,11 @@ namespace Sil
         Assimp::Importer *importer = new Assimp::Importer();
         const aiScene *ai_scene = importer->ReadFile(
             path.string(),
-            aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+            aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_GenNormals);
         std::string stem_string = path.stem().string();
         //ASSERT(ai_scene != nullptr, "Failed to load scene!");
+        std::cout<<path<<std::endl;
+        std::cout<<(ai_scene != nullptr)<<std::endl;
         for (uint32_t mesh_i = 0; mesh_i < ai_scene->mNumMeshes; mesh_i++)
         {
             const aiMesh *ai_mesh = ai_scene->mMeshes[mesh_i];

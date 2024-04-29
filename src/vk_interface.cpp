@@ -1587,12 +1587,14 @@ For subpass self-dependency barriers, the source scope is all previously submitt
     {
         // inferFiletype("textures/texture.jpg");
         _mesh_manager.addResource("textures/viking_room.png");
+        //_mesh_manager.addResource("models/carpet.png");
         //_mesh_manager.addResource("textures/viking_room.png");
         //_mesh_manager.addResource("textures/viking_room.png");
         //_mesh_manager.addResource("textures/viking_room.png");
         //_mesh_manager.addResource("textures/texture.jpg");
         //_mesh_manager.addResource("textures/viking_room.png");
         _mesh_manager.addResource("models/viking_room.obj");
+        //_mesh_manager.addResource("models/carpet.obj");
         //_mesh_manager.addResource("models/viking_room.obj");
         //_mesh_manager.addResource("models/viking_room.obj");
         //_mesh_manager.addResource("models/viking_room.obj");
@@ -1790,15 +1792,15 @@ For subpass self-dependency barriers, the source scope is all previously submitt
         // 最后将这些数量累加作为 maxSets 的值。这样可以确保描述符池能够容纳足够的描述符集，以满足你的渲染需求。
         std::array<VkDescriptorPoolSize, 2> poolSizes{};
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 10);
+        poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 20);
         poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 10);
+        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 20);
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
         poolInfo.pPoolSizes = poolSizes.data();
-        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 20);
+        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 40);
 
         if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
         {
@@ -2273,6 +2275,33 @@ For subpass self-dependency barriers, the source scope is all previously submitt
     {
         if (ImGui::CollapsingHeader("Mesh Outliner"))
         {
+            if (ImGui::Button("xxxx"))
+            {
+                IGFD::FileDialogConfig config;
+                config.path = ".";
+                ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".obj,.stl", config);
+            }
+            ImVec2 minSize = ImVec2(800., 400.);       // The full display area
+            ImVec2 maxSize = ImVec2(FLT_MAX, FLT_MAX); // Half the display area
+            if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_NoCollapse, minSize, maxSize))
+            {
+                if (ImGuiFileDialog::Instance()->IsOk())
+                { // action if OK
+                    std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+                    std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
+                    // action
+                    std::cout << filePathName << std::endl;
+                    std::cout << filePath << std::endl;
+
+                    size_t dotPos = filePathName.find_last_of('.');
+                    std::string png_path = filePathName.substr(0, dotPos) + ".png";
+                    updateMeshToVulkan(filePathName);
+                    updateTextureToVulkan(png_path);
+                }
+
+                // close
+                ImGuiFileDialog::Instance()->Close();
+            }
             if (ImGui::BeginTable("", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders | ImGuiTableFlags_SizingStretchProp))
             {
                 for (int i = 0; i < _mesh_manager._meshes.size(); i++)
@@ -2606,5 +2635,188 @@ For subpass self-dependency barriers, the source scope is all previously submitt
     void VulkInterface::createCamera()
     {
         camera_manager = CameraManager(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), 45.0f, swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f, "main");
+    }
+
+    void VulkInterface::updateMeshToVulkan(std::string mesh_path)
+    {
+        _mesh_manager.addMesh(mesh_path);
+
+        std::vector<VkBuffer> &vertexBuffers = _mesh_manager._vertexBuffers;
+        std::vector<VkDeviceMemory> &vertexBuffersMemory = _mesh_manager._vertexBuffersMemory;
+        std::vector<VkBuffer> &indexBuffers = _mesh_manager._indexBuffers;
+        std::vector<VkDeviceMemory> &indexBuffersMemory = _mesh_manager._indexBuffersMemory;
+
+        std::vector<bool> &mesh_selected = _mesh_manager._mesh_selected;
+
+        vertexBuffers.emplace_back();
+        vertexBuffersMemory.emplace_back();
+        indexBuffers.emplace_back();
+        // vert
+        VkDeviceSize bufferSize = sizeof(Vertex) * _mesh_manager._meshes.back()._vertices.rows();
+
+        std::vector<Vertex> tmp_v_vec;
+        tmp_v_vec.resize(_mesh_manager._meshes.back()._vertices.rows());
+        const Eigen::MatrixXd &V = _mesh_manager._meshes.back()._vertices;
+        const Eigen::MatrixXd &N = _mesh_manager._meshes.back()._normals;
+        const Eigen::MatrixXd &T = _mesh_manager._meshes.back()._tex_coords;
+        for (size_t i = 0; i < V.rows(); ++i)
+        {
+            tmp_v_vec[i] = {
+                {V(i, 0), V(i, 1), V(i, 2)},
+                {N(i, 0), N(i, 1), N(i, 2)},
+                {T(i, 0), T(i, 1)}};
+        }
+
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+        void *data;
+        vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+        memcpy(data, tmp_v_vec.data(), (size_t)bufferSize);
+        vkUnmapMemory(device, stagingBufferMemory);
+
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffers.back(), vertexBuffersMemory.back());
+
+        copyBuffer(stagingBuffer, vertexBuffers.back(), bufferSize);
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+        const Eigen::MatrixXi &F = _mesh_manager._meshes.back()._faces;
+        // index
+        VkDeviceSize bufferSize_ = sizeof(uint32_t) * F.size();
+        std::vector<uint32_t> tmp_f_vec;
+        tmp_f_vec.resize(F.size());
+        for (size_t i = 0; i < F.rows(); ++i)
+        {
+            tmp_f_vec[i * 3] = F(i, 0);
+            tmp_f_vec[i * 3 + 1] = F(i, 1);
+            tmp_f_vec[i * 3 + 2] = F(i, 2);
+        }
+
+        VkBuffer stagingBuffer_;
+        VkDeviceMemory stagingBufferMemory_;
+        createBuffer(bufferSize_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer_, stagingBufferMemory_);
+
+        void *data_;
+        vkMapMemory(device, stagingBufferMemory_, 0, bufferSize_, 0, &data_);
+        memcpy(data_, tmp_f_vec.data(), (size_t)bufferSize_);
+        vkUnmapMemory(device, stagingBufferMemory_);
+
+        createBuffer(bufferSize_, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffers.back(), indexBuffersMemory.back());
+
+        copyBuffer(stagingBuffer_, indexBuffers.back(), bufferSize_);
+
+        vkDestroyBuffer(device, stagingBuffer_, nullptr);
+        vkFreeMemory(device, stagingBufferMemory_, nullptr);
+
+        mesh_selected.push_back(false);
+
+        VkDeviceSize UBObufferSize = sizeof(UniformBufferObject);
+
+        uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+        uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+        std::vector<std::vector<VkBuffer>> &uBuffers = _mesh_manager._uniformBuffers;
+        std::vector<std::vector<VkDeviceMemory>> &uBuffersMemory = _mesh_manager._uniformBuffersMemory;
+        std::vector<std::vector<void *>> &uBuffersMapped = _mesh_manager._uniformBuffersMapped;
+        uBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        uBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+        uBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        {
+            uBuffers[i].emplace_back();
+            uBuffersMemory[i].emplace_back();
+            uBuffersMapped[i].emplace_back();
+
+            createBuffer(UBObufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uBuffers[i].back(), uBuffersMemory[i].back());
+
+            vkMapMemory(device, uBuffersMemory[i].back(), 0, UBObufferSize, 0, &uBuffersMapped[i].back());
+        }
+
+    }
+
+    void VulkInterface::updateTextureToVulkan(std::string texture_path)
+    {
+        _mesh_manager.addTexture(texture_path);
+        std::vector<VkImage> &textureImages = _mesh_manager._textureImages;
+        std::vector<VkImageView> &textureImagesView = _mesh_manager._textureImagesView;
+        std::vector<VkDeviceMemory> &textureImagesMemory = _mesh_manager._textureImagesMemory;
+
+        textureImages.emplace_back();
+        textureImagesView.emplace_back();
+        textureImagesMemory.emplace_back();
+        const TextureData &texture = _mesh_manager._textures.back();
+        VkDeviceSize imageSize = texture._data.value()._width * texture._data.value()._height * texture._data.value()._channels;
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+        void *data;
+        vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+        memcpy(data, texture._data.value()._data, static_cast<size_t>(imageSize));
+        vkUnmapMemory(device, stagingBufferMemory);
+
+        // stbi_image_free(pixels);
+
+        createImage(texture._data.value()._width, texture._data.value()._height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImages.back(), textureImagesMemory.back());
+
+        transitionImageLayout(textureImages.back(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        copyBufferToImage(stagingBuffer, textureImages.back(), static_cast<uint32_t>(texture._data.value()._width), static_cast<uint32_t>(texture._data.value()._height));
+        transitionImageLayout(textureImages.back(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+        textureImagesView.back() = createImageView(textureImages.back(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        std::vector<std::vector<VkDescriptorSet>> &dSets = _mesh_manager._descriptorSets;
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+        {
+            std::vector<VkDescriptorSetLayout> layouts_{descriptorSetLayout};
+            VkDescriptorSetAllocateInfo allocInfo{};
+            allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+            allocInfo.descriptorPool = descriptorPool;
+            allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts_.size());
+            allocInfo.pSetLayouts = layouts_.data();
+
+            dSets[i].emplace_back();
+            if (vkAllocateDescriptorSets(device, &allocInfo, dSets[i].data() + dSets[i].size() - 1) != VK_SUCCESS)
+            {
+                throw std::runtime_error("failed to allocate descriptor sets!");
+            }
+
+            VkDescriptorBufferInfo bufferInfo{};
+            bufferInfo.buffer = _mesh_manager._uniformBuffers[i].back();
+            bufferInfo.offset = 0;
+            bufferInfo.range = sizeof(UniformBufferObject);
+
+            VkDescriptorImageInfo imageInfo{};
+            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            imageInfo.imageView = _mesh_manager._textureImagesView.back();
+            imageInfo.sampler = textureSampler;
+
+            std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+
+            descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrites[0].dstSet = dSets[i].back();
+            descriptorWrites[0].dstBinding = 0;
+            descriptorWrites[0].dstArrayElement = 0;
+            descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            descriptorWrites[0].descriptorCount = 1;
+            descriptorWrites[0].pBufferInfo = &bufferInfo;
+
+            descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrites[1].dstSet = dSets[i].back();
+            descriptorWrites[1].dstBinding = 1;
+            descriptorWrites[1].dstArrayElement = 0;
+            descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            descriptorWrites[1].descriptorCount = 1;
+            descriptorWrites[1].pImageInfo = &imageInfo;
+
+            vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+        }
     }
 }

@@ -7,7 +7,7 @@
 #include "imgui_internal.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
-
+#include "ImGuiFileDialog.h"
 
 #include "tmesh.h"
 
@@ -205,6 +205,8 @@ namespace Sil
 
         void mapMeshToVulKan();
         void mapTextureToVulkan();
+        void updateMeshToVulkan(std::string mesh_path);
+        void updateTextureToVulkan(std::string texture_path);
         void recreateSwapChain();
         void cleanupSwapChain();
         void cleanup();

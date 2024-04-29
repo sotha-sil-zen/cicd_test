@@ -58,6 +58,23 @@ target_link_libraries(imgui PRIVATE ${Vulkan_LIBRARIES})
 install(TARGETS imgui
         DESTINATION ${IMGUI_INSTALL_DIR}/lib)
 
+#ImGuiFileDialog Part
+set(IMGUI_FILE_DIALOG_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/ImGuiFileDialog)
+set(IMGUI_FILE_DIALOG_INSTALL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/install/ImGuiFileDialog)
+include_directories(${IMGUI_FILE_DIALOG_SOURCE_DIR})
+
+add_library(ImGuiFileDialog STATIC
+    ${IMGUI_FILE_DIALOG_SOURCE_DIR}/ImGuiFileDialog.cpp
+    ${IMGUI_FILE_DIALOG_SOURCE_DIR}/ImGuiFileDialog.h
+    ${IMGUI_FILE_DIALOG_SOURCE_DIR}/ImGuiFileDialogConfig.h
+)
+
+target_include_directories(ImGuiFileDialog PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+if(UNIX)
+    target_compile_options(ImGuiFileDialog PUBLIC -Wno-unknown-pragmas)
+endif()
+
 
 # Eigen Part
 set(EIGEN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdParty/eigen)
@@ -101,6 +118,7 @@ target_sources(main PRIVATE ${SOURCES})
 target_link_libraries(main PUBLIC Vulkan::Vulkan)
 target_link_libraries(main PRIVATE glfw)
 target_link_libraries(main PRIVATE imgui)
+target_link_libraries(main PRIVATE ImGuiFileDialog)
 target_link_libraries(main PRIVATE assimp)
 
 #target_link_libraries(main PRIVATE glm)

@@ -204,7 +204,7 @@ namespace Sil
     {
         return const_cast<CameraManager *>(this)->getName(cur_cam_idx);
     }
-    const int& CameraManager::getFreezed(size_t idx) const
+    const int &CameraManager::getFreezed(size_t idx) const
     {
         return const_cast<CameraManager *>(this)->getFreezed(cur_cam_idx);
     }
@@ -216,7 +216,7 @@ namespace Sil
     {
         return const_cast<CameraManager *>(this)->getCurName();
     }
-    const int& CameraManager::getCurFreezed() const
+    const int &CameraManager::getCurFreezed() const
     {
         return const_cast<CameraManager *>(this)->getCurFreezed();
     }
@@ -229,7 +229,7 @@ namespace Sil
     {
         return camera_name_vec[idx];
     }
-    int& CameraManager::getFreezed(size_t idx)
+    int &CameraManager::getFreezed(size_t idx)
     {
         return camera_freezed_vec[idx];
     }
@@ -241,7 +241,7 @@ namespace Sil
     {
         return camera_name_vec[cur_cam_idx];
     }
-    int& CameraManager::getCurFreezed()
+    int &CameraManager::getCurFreezed()
     {
         return camera_freezed_vec[cur_cam_idx];
     }
@@ -260,7 +260,7 @@ namespace Sil
     }
     void CameraManager::setFreezed(int freezed_int, size_t idx)
     {
-        camera_freezed_vec[idx]=freezed_int;
+        camera_freezed_vec[idx] = freezed_int;
     }
     bool CameraManager::del()
     {
@@ -275,4 +275,154 @@ namespace Sil
         setCurIdx(0);
         return true;
     }
+
+    Gizmo::Gizmo()
+    {
+        type = GizmoType::NONE;
+        action = GizmoAction::NONE;
+        local_toggle = false;
+    }
+    std::pair<bool, float> Gizmo::rayIntersectTriangle(const GizmoRay &ray, const Vertex &v0, const Vertex &v1, const Vertex &v2)
+    {
+        glm::vec3 e1 = v0.pos - v1.pos, e2 = v2.pos - v1.pos, h = glm::cross(ray.dirction, e2);
+        float a = glm::dot(e1, h);
+
+        if (std::abs(a) == 0)
+        {
+            return std::pair<bool, float>(false, -1.0);
+        }
+
+        float f = 1 / a;
+        glm::vec3 s = ray.origin - v0.pos;
+        float u = f * glm::dot(s, h);
+        if (u < 0 || u > 1)
+        {
+            return std::pair<bool, float>(false, -1.0);
+        }
+
+        glm::vec3 q = glm::cross(s, e1);
+        float v = f * glm::dot(ray.dirction, q);
+        if (v < 0 || u + v > 1)
+        {
+            return std::pair<bool, float>(false, -1.0);
+        }
+        auto t = f * dot(e2, q);
+        if (t < 0)
+            return std::pair<bool, float>(false, -1.0);
+        {
+            return std::pair<bool, float>(true, t);
+        }
+    }
+    std::pair<bool, float> Gizmo::rayIntersectGizmoMesh(const GizmoRay &ray)
+    {
+        float best_t = std::numeric_limits<float>::infinity();
+        uint32_t best_tri = std::numeric_limits<uint32_t>::infinity();
+        for (uint32_t f = 0; f < facet_vec.size() / 3; ++f)
+        {
+            std::pair<bool, float> res = rayIntersectTriangle(ray, vertex_vec[facet_vec[f * 3]], vertex_vec[facet_vec[f * 3 + 1]], vertex_vec[facet_vec[f * 3 + 2]]);
+            if (res.first && res.second < best_t)
+            {
+                best_t = res.second;
+                best_tri = f;
+            }
+        }
+
+        if (best_tri == std::numeric_limits<uint32_t>::infinity())
+        {
+            return std::pair<bool, float>(false, -1.0f);
+        }
+        return std::pair<bool, float>(true, best_t);
+    }
+    /*
+    void Gizmo::makeBox(const glm::vec3 &min_bounds, const glm::vec3 &max_bounds)
+    {
+        const auto a = min_bounds, b = max_bounds;
+        vertex_vec = {
+            {{a.x, a.y, a.z}, {-1, 0, 0}, {0.5, 0.5}},
+            {{a.x, a.y, b.z}, {-1, 0, 0}, {0.5, 0.5}},
+            {{a.x, b.y, b.z}, {-1, 0, 0}, {0.5, 0.5}},
+            {{a.x, b.y, a.z}, {-1, 0, 0}, {0.5, 0.5}},
+            {{b.x, a.y, a.z}, {+1, 0, 0}, {0.5, 0.5}},
+            {{b.x, b.y, a.z}, {+1, 0, 0}, {0.5, 0.5}},
+            {{b.x, b.y, b.z}, {+1, 0, 0}, {0.5, 0.5}},
+            {{b.x, a.y, b.z}, {+1, 0, 0}, {0.5, 0.5}},
+            {{a.x, a.y, a.z}, {0, -1, 0}, {0.5, 0.5}},
+            {{b.x, a.y, a.z}, {0, -1, 0}, {0.5, 0.5}},
+            {{b.x, a.y, b.z}, {0, -1, 0}, {0.5, 0.5}},
+            {{a.x, a.y, b.z}, {0, -1, 0}, {0.5, 0.5}},
+            {{a.x, b.y, a.z}, {0, +1, 0}, {0.5, 0.5}},
+            {{a.x, b.y, b.z}, {0, +1, 0}, {0.5, 0.5}},
+            {{b.x, b.y, b.z}, {0, +1, 0}, {0.5, 0.5}},
+            {{b.x, b.y, a.z}, {0, +1, 0}, {0.5, 0.5}},
+            {{a.x, a.y, a.z}, {0, 0, -1}, {0.5, 0.5}},
+            {{a.x, b.y, a.z}, {0, 0, -1}, {0.5, 0.5}},
+            {{b.x, b.y, a.z}, {0, 0, -1}, {0.5, 0.5}},
+            {{b.x, a.y, a.z}, {0, 0, -1}, {0.5, 0.5}},
+            {{a.x, a.y, b.z}, {0, 0, +1}, {0.5, 0.5}},
+            {{b.x, a.y, b.z}, {0, 0, +1}, {0.5, 0.5}},
+            {{b.x, b.y, b.z}, {0, 0, +1}, {0.5, 0.5}},
+            {{a.x, b.y, b.z}, {0, 0, +1}, {0.5, 0.5}},
+        };
+        // mesh.triangles = {{0, 1, 2}, {0, 2, 3}, {4, 5, 6}, {4, 6, 7}, {8, 9, 10}, {8, 10, 11}, {12, 13, 14}, {12, 14, 15}, {16, 17, 18}, {16, 18, 19}, {20, 21, 22}, {20, 22, 23}};
+        facet_vec = {0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 8, 9, 10, 8, 10, 11, 12, 13, 14, 12, 14, 15, 16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23};
+    }
+
+    void makeCylinder(const glm::vec3 &axis, const glm::vec3 &arm1, const glm::vec3 &arm2, int32_t slices)
+    {
+        vertex_vec.clear();
+        facet_vec.clear();
+        for (int32_t i = 0; i <= slices; ++i)
+        {
+            const float tex_s = static_cast<float>(i) / slices, angle = (float)(i % slices) * tau / slices;
+            const glm::vec3 arm = arm1 * std::cos(angle) + arm2 * std::sin(angle);
+            mesh.vertices.push_back({arm, normalize(arm), {0.5, 0.5}});
+            mesh.vertices.push_back({arm + axis, normalize(arm)}, {0.5, 0.5});
+        }
+        for (int32_t i = 0; i < slices; ++i)
+        {
+            mesh.triangles.push_back({i * 2, i * 2 + 2, i * 2 + 3});
+            mesh.triangles.push_back({i * 2, i * 2 + 3, i * 2 + 1});
+        }
+
+        int32_t base = (int32_t)mesh.vertices.size();
+        for (int32_t i = 0; i < slices; ++i)
+        {
+            const float angle = static_cast<float>(i % slices) * tau / slices, c = std::cos(angle), s = std::sin(angle);
+            const glm::vec3 arm = arm1 * c + arm2 * s;
+            mesh.vertices.push_back({arm + axis, normalize(axis), {0.5, 0.5}});
+            mesh.vertices.push_back({arm, -normalize(axis), {0.5, 0.5}});
+        }
+        for (int32_t i = 2; i < slices; ++i)
+        {
+            mesh.triangles.push_back({base, base + i * 2 - 2, base + i * 2});
+            mesh.triangles.push_back({base + 1, base + i * 2 + 1, base + i * 2 - 1});
+        }
+        return mesh;
+    }
+    /*
+    make_lathed_geometry(const float3 & axis, const float3 & arm1, const float3 & arm2, int slices, const std::vector<float2> & points, const float eps = 0.0f)
+    {
+    geometry_mesh mesh;
+    for (int i = 0; i <= slices; ++i)
+    {
+        const float angle = (static_cast<float>(i % slices) * tau / slices) + (tau/8.f), c = std::cos(angle), s = std::sin(angle);
+        const float3x2 mat = { axis, arm1 * c + arm2 * s };
+        for (auto & p : points) mesh.vertices.push_back({ mul(mat, p) + eps, float3(0.f) });
+
+        if (i > 0)
+        {
+            for (uint32_t j = 1; j < (uint32_t) points.size(); ++j)
+            {
+                uint32_t i0 = (i - 1)* uint32_t(points.size()) + (j - 1);
+                uint32_t i1 = (i - 0)* uint32_t(points.size()) + (j - 1);
+                uint32_t i2 = (i - 0)* uint32_t(points.size()) + (j - 0);
+                uint32_t i3 = (i - 1)* uint32_t(points.size()) + (j - 0);
+                mesh.triangles.push_back({ i0,i1,i2 });
+                mesh.triangles.push_back({ i0,i2,i3 });
+            }
+        }
+    }
+    compute_normals(mesh);
+    return mesh;
+    */
 }

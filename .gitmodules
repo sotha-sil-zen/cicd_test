@@ -16,3 +16,6 @@
 [submodule "3rdParty/glfw"]
 	path = 3rdParty/glfw
 	url = https://github.com/sotha-sil-zen/glfw.git
+[submodule "3rdParty/ImGuiFileDialog"]
+	path = 3rdParty/ImGuiFileDialog
+	url = https://github.com/sotha-sil-zen/ImGuiFileDialog.git
