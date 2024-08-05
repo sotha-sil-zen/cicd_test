@@ -156,7 +156,7 @@ namespace Sil
             float orthoViewportSize = 2.0f * m_orthoSize;
 
             // 根据正交投影的视口大小推导透视投影的FOV
-            float halfFovY = atan(orthoViewportSize / (2.0f * glm::length(m_eye))) * (180.0f / M_PI);
+            float halfFovY = atan(orthoViewportSize / (2.0f * glm::length(m_eye))) * (180.0f / glm::pi<float>());
             float fov = 2.0f * halfFovY;
             SetPerspectiveProjection(fov, m_aspectRatio, m_nearPlane, m_farPlane);
         }
