@@ -169,8 +169,6 @@ namespace Sil
         };
         GizmoType type;
         GizmoAction action;
-        bool local_toggle;
-        glm::mat4 pre_trans_mat;
         glm::vec3 gizmo_pos;
         std::vector<Vertex> vertex_vec;
         std::vector<uint32_t> facet_vec;
@@ -180,7 +178,10 @@ namespace Sil
         void makeBox(const glm::vec3 &min_bounds, const glm::vec3 &max_bounds);
         void makeLathed(const glm::vec3 &axis, const glm::vec3 &arm1, const glm::vec3 &arm2, int slices, const std::vector<glm::vec2> &points, const float eps = 0.0f);
         void switchType(GizmoType nonetype);
-        void switchType(GizmoType type,bool use_transform, glm::mat4 transform_mat, glm::vec3 pos);
+        void switchType(GizmoType type, glm::vec3 pos);
+        void makeTranslator();
+        void makeScaler();
+        void makeRotater();
     };
 }
 #endif

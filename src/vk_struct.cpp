@@ -280,7 +280,6 @@ namespace Sil
     {
         type = GizmoType::NONE;
         action = GizmoAction::NONE;
-        local_toggle = false;
         
     }
     std::pair<bool, float> Gizmo::rayIntersectTriangle(const GizmoRay &ray, const Vertex &v0, const Vertex &v1, const Vertex &v2)
@@ -343,27 +342,34 @@ namespace Sil
             this->action = GizmoAction::NONE;
         }
     }
-    void Gizmo::switchType(GizmoType type, bool use_transform, glm::mat4 transform_mat, glm::vec3 pos)
+    void Gizmo::switchType(GizmoType type, glm::vec3 pos)
     {
         if (type == GizmoType::NONE)
         {
             this->type = type;
             this->action = GizmoAction::NONE;
-            return;
-        }
-        if (use_transform)
-        {
-            this->pre_trans_mat = transform_mat;
         }
         else
         {
-            this->pre_trans_mat = glm::mat4(1.0);
-        }
-        this->gizmo_pos = pos;
-        if (type == GizmoType::SCALE)
-        {
+            this->gizmo_pos=pos;
             
         }
+    }
+
+    void Gizmo::makeTranslator()
+    {
+        vertex_vec.clear();
+        facet_vec.clear();
+    }
+
+    void Gizmo::makeScaler()
+    {
+
+    }
+
+    void Gizmo::makeRotater()
+    {
+
     }
 
     /*
